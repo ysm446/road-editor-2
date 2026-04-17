@@ -1,0 +1,61 @@
+#pragma once
+
+#include <QOpenGLWidget>
+#include <QOpenGLFunctions_4_1_Core>
+#include <QTimer>
+#include <QPoint>
+#include <QString>
+#include <glm/glm.hpp>
+#include "Camera.h"
+#include "Grid.h"
+#include "../renderer/Shader.h"
+#include "../model/RoadNetwork.h"
+#include "../scene/RoadRenderer.h"
+#include "../editor/EditorState.h"
+
+class Viewport3D : public QOpenGLWidget, protected QOpenGLFunctions_4_1_Core {
+    Q_OBJECT
+public:
+    explicit Viewport3D(QWidget* parent = nullptr);
+    ~Viewport3D() override;
+
+    void loadNetwork(const QString& path);
+
+protected:
+    void initializeGL() override;
+    void resizeGL(int w, int h) override;
+    void paintGL() override;
+
+    void mousePressEvent(QMouseEvent* e) override;
+    void mouseMoveEvent(QMouseEvent* e) override;
+    void mouseReleaseEvent(QMouseEvent* e) override;
+    void wheelEvent(QWheelEvent* e) override;
+    void keyPressEvent(QKeyEvent* e) override;
+
+private:
+    // Ray and pick helpers
+    glm::vec3 screenToRay(const QPoint& p) const;
+    bool pickControlPoint(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
+                          int& outRoadIdx, int& outPointIdx);
+    glm::vec3 rayHitY(const glm::vec3& origin, const glm::vec3& dir, float y) const;
+
+    Camera       m_camera;
+    Grid         m_grid;
+    Shader       m_lineShader;
+    Shader       m_roadShader;
+    QTimer       m_timer;
+    QPoint       m_lastPos;
+    bool         m_rotating  = false;
+    bool         m_panning   = false;
+    float        m_aspect    = 1.0f;
+    bool         m_glReady   = false;
+
+    RoadNetwork  m_network;
+    RoadRenderer m_roadRenderer;
+    EditorState  m_editor;
+    QString      m_pendingPath;
+
+    // Drag state
+    bool      m_dragging    = false;
+    glm::vec3 m_dragPlaneY  = {0, 0, 0}; // world-space Y of drag plane
+};

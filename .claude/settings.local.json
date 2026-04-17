@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "Bash(cmake --build d:/GitHub/road-editor-2/build -j4)"
+    ]
+  }
+}

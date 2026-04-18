@@ -34,5 +34,5 @@ private:
     QDoubleSpinBox* m_rightWidthSpin;
 
 signals:
-    void roadModified(int roadIdx);
+    void roadModified(int roadIdx, float speed, float leftWidth, float rightWidth);
 };

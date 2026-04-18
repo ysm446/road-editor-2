@@ -3,11 +3,14 @@
 #include "PropertiesPanel.h"
 #include "OutlinerPanel.h"
 #include "../viewport/Viewport3D.h"
+#include "../editor/EditorState.h"
 #include "../model/Serializer.h"
 #include <QDockWidget>
 #include <QMenuBar>
 #include <QMenu>
 #include <QAction>
+#include <QActionGroup>
+#include <QToolBar>
 #include <QApplication>
 #include <QFileDialog>
 #include <QFile>
@@ -25,6 +28,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     setupDocks();
     setupMenuBar();
+    setupToolBar();
 
     // Wire viewport signals to panels
     connect(m_viewport, &Viewport3D::selectionChanged,
@@ -41,15 +45,9 @@ MainWindow::MainWindow(QWidget* parent)
                 m_outliner->onSelectionChanged(roadIdx);
             });
 
-    // Wire properties Apply → rebuild mesh with new values
+    // Wire properties Apply → write back road values and rebuild mesh
     connect(m_properties, &PropertiesPanel::roadModified,
-            this, [this](int roadIdx) {
-                // Copy edited values back into the network
-                auto& road = const_cast<RoadNetwork&>(m_viewport->network()).roads[roadIdx];
-                // PropertiesPanel signals only when Apply is pressed; we push undo before rebuild.
-                // For now just rebuild — future: expose network write-back via Viewport3D slot.
-                (void)road;
-            });
+            m_viewport,   &Viewport3D::applyRoadProperties);
 
     // Auto-load sample data
     QString sample = QStringLiteral(ROAD_EDITOR_SOURCE_DIR) + "/docs/road_data_format.json";
@@ -83,6 +81,35 @@ void MainWindow::setupDocks() {
     logDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     addDockWidget(Qt::BottomDockWidgetArea, logDock);
     logDock->setMaximumHeight(120);
+}
+
+void MainWindow::setupToolBar() {
+    auto* tb = addToolBar("Tools");
+    tb->setMovable(false);
+    tb->setIconSize({20, 20});
+
+    auto* group = new QActionGroup(this);
+    group->setExclusive(true);
+
+    m_selectModeAct = tb->addAction("Select");
+    m_selectModeAct->setCheckable(true);
+    m_selectModeAct->setToolTip("Select roads  [S]");
+    m_selectModeAct->setShortcut(Qt::Key_S);
+    group->addAction(m_selectModeAct);
+
+    m_editModeAct = tb->addAction("Edit");
+    m_editModeAct->setCheckable(true);
+    m_editModeAct->setChecked(true);
+    m_editModeAct->setToolTip("Edit control points  [E]");
+    m_editModeAct->setShortcut(Qt::Key_E);
+    group->addAction(m_editModeAct);
+
+    connect(m_selectModeAct, &QAction::triggered, this, [this]{
+        m_viewport->setToolMode(ToolMode::Select);
+    });
+    connect(m_editModeAct, &QAction::triggered, this, [this]{
+        m_viewport->setToolMode(ToolMode::Edit);
+    });
 }
 
 void MainWindow::setupMenuBar() {

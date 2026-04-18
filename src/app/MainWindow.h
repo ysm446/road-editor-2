@@ -6,6 +6,7 @@
 class Viewport3D;
 class PropertiesPanel;
 class OutlinerPanel;
+class QAction;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -22,8 +23,12 @@ private:
     PropertiesPanel* m_properties  = nullptr;
     OutlinerPanel*   m_outliner    = nullptr;
 
+    QAction* m_selectModeAct = nullptr;
+    QAction* m_editModeAct   = nullptr;
+
     QString m_currentPath;
 
     void setupDocks();
     void setupMenuBar();
+    void setupToolBar();
 };

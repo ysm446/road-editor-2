@@ -75,6 +75,23 @@ void Viewport3D::paintGL() {
     m_axisGizmo.draw(this, m_lineShader, view, width(), height());
 }
 
+void Viewport3D::setToolMode(ToolMode m) {
+    m_editor.mode = m;
+}
+
+void Viewport3D::applyRoadProperties(int roadIdx, float speed, float leftWidth, float rightWidth) {
+    if (roadIdx < 0 || roadIdx >= static_cast<int>(m_network.roads.size())) return;
+    m_editor.pushUndo(m_network);
+    auto& road = m_network.roads[roadIdx];
+    road.defaultTargetSpeed    = speed;
+    road.defaultWidthLaneLeft1  = leftWidth;
+    road.defaultWidthLaneRight1 = rightWidth;
+    makeCurrent();
+    m_roadRenderer.rebuild(this, m_network);
+    doneCurrent();
+    emit networkChanged();
+}
+
 void Viewport3D::loadNetwork(const QString& path) {
     if (!m_glReady) {
         m_pendingPath = path;
@@ -181,26 +198,39 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
         int ri = -1;
         int pi = -1;
         if (pickControlPoint(rayOri, rayDir, ri, pi)) {
-            bool changed = !m_editor.sel.valid()
-                || m_editor.sel.roadIdx != ri
-                || m_editor.sel.pointIdx != pi;
-            if (changed) {
-                m_editor.sel.roadIdx = ri;
-                m_editor.sel.pointIdx = pi;
-                makeCurrent();
-                m_roadRenderer.updateSelection(this, m_network, ri, pi);
-                doneCurrent();
-                emit selectionChanged(ri);
-            }
+            bool roadChanged = m_editor.sel.roadIdx != ri;
+            bool ptChanged   = m_editor.sel.pointIdx != pi;
 
-            glm::vec3 glPos = {
-                -m_network.roads[ri].points[pi].pos.x,
-                m_network.roads[ri].points[pi].pos.y,
-                m_network.roads[ri].points[pi].pos.z,
-            };
-            m_dragging = true;
-            m_dragPlaneY = glPos;
-            m_editor.pushUndo(m_network);
+            if (m_editor.mode == ToolMode::Select) {
+                // Select mode: highlight road only, no dragging
+                if (roadChanged) {
+                    m_editor.sel.roadIdx  = ri;
+                    m_editor.sel.pointIdx = -1;
+                    makeCurrent();
+                    m_roadRenderer.updateSelection(this, m_network, ri, -1);
+                    doneCurrent();
+                    emit selectionChanged(ri);
+                }
+                m_dragging = false;
+            } else {
+                // Edit mode: pick individual control point and allow drag
+                if (roadChanged || ptChanged) {
+                    m_editor.sel.roadIdx  = ri;
+                    m_editor.sel.pointIdx = pi;
+                    makeCurrent();
+                    m_roadRenderer.updateSelection(this, m_network, ri, pi);
+                    doneCurrent();
+                    emit selectionChanged(ri);
+                }
+                glm::vec3 glPos = {
+                    -m_network.roads[ri].points[pi].pos.x,
+                    m_network.roads[ri].points[pi].pos.y,
+                    m_network.roads[ri].points[pi].pos.z,
+                };
+                m_dragging   = true;
+                m_dragPlaneY = glPos;
+                m_editor.pushUndo(m_network);
+            }
         } else {
             m_editor.sel.clear();
             m_dragging = false;

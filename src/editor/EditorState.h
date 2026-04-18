@@ -3,6 +3,8 @@
 #include <deque>
 #include "../model/RoadNetwork.h"
 
+enum class ToolMode { Select, Edit };
+
 struct Selection {
     int roadIdx  = -1;
     int pointIdx = -1;
@@ -13,6 +15,7 @@ struct Selection {
 class EditorState {
 public:
     Selection sel;
+    ToolMode  mode = ToolMode::Edit;
 
     void pushUndo(const RoadNetwork& net);
     bool undo(RoadNetwork& net);

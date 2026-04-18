@@ -91,5 +91,8 @@ void PropertiesPanel::setEnabled(bool on) {
 
 void PropertiesPanel::applyChanges() {
     if (!m_net || m_roadIdx < 0 || m_roadIdx >= (int)m_net->roads.size()) return;
-    emit roadModified(m_roadIdx);
+    emit roadModified(m_roadIdx,
+                      static_cast<float>(m_speedSpin->value()),
+                      static_cast<float>(m_leftWidthSpin->value()),
+                      static_cast<float>(m_rightWidthSpin->value()));
 }

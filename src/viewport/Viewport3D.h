@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 #include "Camera.h"
 #include "Grid.h"
+#include "AxisGizmo.h"
 #include "../renderer/Shader.h"
 #include "../model/RoadNetwork.h"
 #include "../scene/RoadRenderer.h"
@@ -21,6 +22,12 @@ public:
 
     void loadNetwork(const QString& path);
 
+    const RoadNetwork& network() const { return m_network; }
+
+signals:
+    void selectionChanged(int roadIdx);  // -1 = deselected
+    void networkChanged();
+
 protected:
     void initializeGL() override;
     void resizeGL(int w, int h) override;
@@ -31,6 +38,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent* e) override;
     void wheelEvent(QWheelEvent* e) override;
     void keyPressEvent(QKeyEvent* e) override;
+    void keyReleaseEvent(QKeyEvent* e) override;
 
 private:
     // Ray and pick helpers
@@ -41,6 +49,7 @@ private:
 
     Camera       m_camera;
     Grid         m_grid;
+    AxisGizmo    m_axisGizmo;
     Shader       m_lineShader;
     Shader       m_roadShader;
     QTimer       m_timer;
@@ -57,5 +66,6 @@ private:
 
     // Drag state
     bool      m_dragging    = false;
-    glm::vec3 m_dragPlaneY  = {0, 0, 0}; // world-space Y of drag plane
+    glm::vec3 m_dragPlaneY  = {0, 0, 0};
+    bool      m_altDown     = false;
 };

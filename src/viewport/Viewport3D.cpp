@@ -3,6 +3,7 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
+#include <QApplication>
 #include <QDir>
 #include <QCoreApplication>
 #include <QDebug>
@@ -21,6 +22,7 @@ Viewport3D::Viewport3D(QWidget* parent)
 Viewport3D::~Viewport3D() {
     makeCurrent();
     m_grid.destroy(this);
+    m_axisGizmo.destroy(this);
     m_roadRenderer.destroy(this);
     doneCurrent();
 }
@@ -43,6 +45,7 @@ void Viewport3D::initializeGL() {
         qWarning() << "Road shader load failed — check shaders/ directory";
 
     m_grid.init(this);
+    m_axisGizmo.init(this);
     m_roadRenderer.init(this);
     m_glReady = true;
 
@@ -61,9 +64,11 @@ void Viewport3D::resizeGL(int w, int h) {
 void Viewport3D::paintGL() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glm::mat4 vp = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+    glm::mat4 view = m_camera.viewMatrix();
+    glm::mat4 vp   = m_camera.projMatrix(m_aspect) * view;
     m_grid.draw(this, m_lineShader, vp);
     m_roadRenderer.draw(this, m_lineShader, m_roadShader, vp);
+    m_axisGizmo.draw(this, m_lineShader, view, width(), height());
 }
 
 void Viewport3D::loadNetwork(const QString& path) {
@@ -75,6 +80,8 @@ void Viewport3D::loadNetwork(const QString& path) {
     if (Serializer::loadFromFile(path, m_network))
         m_roadRenderer.rebuild(this, m_network);
     doneCurrent();
+    emit networkChanged();
+    emit selectionChanged(-1);
     update();
 }
 
@@ -159,14 +166,15 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
 
         int ri, pi;
         if (pickControlPoint(rayOri, rayDir, ri, pi)) {
-            if (!m_editor.sel.valid() ||
-                m_editor.sel.roadIdx != ri || m_editor.sel.pointIdx != pi)
-            {
+            bool changed = !m_editor.sel.valid() ||
+                           m_editor.sel.roadIdx != ri || m_editor.sel.pointIdx != pi;
+            if (changed) {
                 m_editor.sel.roadIdx  = ri;
                 m_editor.sel.pointIdx = pi;
                 makeCurrent();
                 m_roadRenderer.updateSelection(this, m_network, ri, pi);
                 doneCurrent();
+                emit selectionChanged(ri);
             }
             // Begin drag: horizontal plane at the point's Y (GL space)
             glm::vec3 glPos = { -m_network.roads[ri].points[pi].pos.x,
@@ -182,6 +190,7 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
             makeCurrent();
             m_roadRenderer.updateSelection(this, m_network, -1, -1);
             doneCurrent();
+            emit selectionChanged(-1);
         }
     }
 }
@@ -211,6 +220,7 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
         m_roadRenderer.rebuild(this, m_network);
         m_roadRenderer.updateSelection(this, m_network, ri, pi);
         doneCurrent();
+        emit networkChanged();
     }
 }
 
@@ -221,11 +231,14 @@ void Viewport3D::mouseReleaseEvent(QMouseEvent* e) {
 }
 
 void Viewport3D::wheelEvent(QWheelEvent* e) {
-    float delta = static_cast<float>(e->angleDelta().y()) / 120.0f;
-    m_camera.zoom(delta);
+    if (QApplication::keyboardModifiers() & Qt::AltModifier) {
+        float delta = static_cast<float>(e->angleDelta().y()) / 120.0f;
+        m_camera.zoom(delta);
+    }
 }
 
 void Viewport3D::keyPressEvent(QKeyEvent* e) {
+    if (e->key() == Qt::Key_Alt) { m_altDown = true; return; }
     if (!m_glReady) return;
 
     if (e->modifiers() & Qt::ControlModifier) {
@@ -251,4 +264,9 @@ void Viewport3D::keyPressEvent(QKeyEvent* e) {
         }
     }
     QOpenGLWidget::keyPressEvent(e);
+}
+
+void Viewport3D::keyReleaseEvent(QKeyEvent* e) {
+    if (e->key() == Qt::Key_Alt) m_altDown = false;
+    QOpenGLWidget::keyReleaseEvent(e);
 }

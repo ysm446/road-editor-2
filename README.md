@@ -34,7 +34,7 @@ cmake --build build --config Release -- -j4
 
 ## 起動
 
-`run.bat` をダブルクリック、または:
+`start.bat` をダブルクリック、または:
 
 ```
 build/bin/RoadEditor2.exe

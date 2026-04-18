@@ -22,8 +22,8 @@ glm::mat4 Camera::projMatrix(float aspect) const {
 }
 
 void Camera::orbit(float dx, float dy) {
-    m_yaw   += dx * 0.005f;
-    m_pitch -= dy * 0.005f;
+    m_yaw   -= dx * 0.005f;
+    m_pitch += dy * 0.005f;
     m_pitch  = std::clamp(m_pitch, -1.4f, 1.4f);
 }
 

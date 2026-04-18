@@ -14,7 +14,7 @@ cmake --build build --config Release -- -j4
 
 # Run
 build/bin/RoadEditor2.exe
-# or double-click run.bat
+# or double-click start.bat
 ```
 
 CMakeLists.txt uses `GLOB_RECURSE` — re-run configure whenever new `.cpp` files are added.

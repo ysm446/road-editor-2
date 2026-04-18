@@ -25,7 +25,7 @@ static const glm::vec3 kColZHi  = {0.55f, 0.75f, 1.00f};
 
 glm::vec3 TransformGizmo::axisDir(Axis a) {
     switch (a) {
-        case Axis::X: return {-1.0f,  0.0f, 0.0f}; // world X+ → GL -X
+        case Axis::X: return { 1.0f,  0.0f, 0.0f};
         case Axis::Y: return { 0.0f,  1.0f, 0.0f};
         case Axis::Z: return { 0.0f,  0.0f, 1.0f};
         default:      return { 0.0f,  0.0f, 0.0f};
@@ -55,8 +55,8 @@ float TransformGizmo::axisTParam(const glm::vec3& rayOrigin,
 static void axisPerps(TransformGizmo::Axis a, glm::vec3& p1, glm::vec3& p2) {
     switch (a) {
         case TransformGizmo::Axis::X:
-            p1 = {0.0f, 1.0f, 0.0f};
-            p2 = {0.0f, 0.0f, 1.0f};
+            p1 = { 0.0f, 1.0f, 0.0f};
+            p2 = { 0.0f, 0.0f, 1.0f};
             break;
         case TransformGizmo::Axis::Y:
             p1 = {-1.0f, 0.0f, 0.0f};

@@ -10,12 +10,13 @@
 // All external positions are in GL rendering space (X already flipped from world).
 class TransformGizmo {
 public:
-    enum class Axis { None = -1, X = 0, Y = 1, Z = 2 };
+    enum class Axis { None = -1, X = 0, Y = 1, Z = 2, Screen = 3 };
 
     void init   (QOpenGLFunctions_4_1_Core* f);
     void destroy(QOpenGLFunctions_4_1_Core* f);
 
     // Rebuild arrow geometry at GL-space vertex position.
+    // camGlPos: camera position in GL space (for scale and center-handle orientation).
     // highlight: axis to draw brighter (hover).
     void rebuild(QOpenGLFunctions_4_1_Core* f,
                  const glm::vec3& vertexGlPos,

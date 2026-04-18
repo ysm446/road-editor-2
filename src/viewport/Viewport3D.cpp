@@ -313,13 +313,27 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
                     e->pos(), glPos, m_camera.position(), vpMat, width(), height());
 
                 if (axis != TransformGizmo::Axis::None) {
-                    m_gizmoDragAxis     = axis;
+                    m_gizmoDragAxis      = axis;
                     m_gizmoDragOrigGlPos = glPos;
-                    float t = TransformGizmo::axisTParam(
-                        rayOri, rayDir, glPos,
-                        TransformGizmo::axisDir(axis));
-                    m_gizmoDragT0 = t;
-                    m_dragging    = true;
+
+                    if (axis == TransformGizmo::Axis::Screen) {
+                        // Camera-parallel plane: record hit point on the plane at drag start
+                        glm::vec3 planeNorm = glm::normalize(m_camera.position() - glPos);
+                        float denom = glm::dot(rayDir, planeNorm);
+                        if (std::abs(denom) > 1e-6f) {
+                            float t = glm::dot(glPos - rayOri, planeNorm) / denom;
+                            m_gizmoDragScreenHit0 = rayOri + t * rayDir;
+                        } else {
+                            m_gizmoDragScreenHit0 = glPos;
+                        }
+                    } else {
+                        float t = TransformGizmo::axisTParam(
+                            rayOri, rayDir, glPos,
+                            TransformGizmo::axisDir(axis));
+                        m_gizmoDragT0 = t;
+                    }
+
+                    m_dragging = true;
                     m_editor.pushUndo(m_network);
                     return;
                 }
@@ -388,7 +402,17 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
         int ri = m_editor.sel.roadIdx;
         int pi = m_editor.sel.pointIdx;
 
-        if (m_gizmoDragAxis != TransformGizmo::Axis::None) {
+        if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
+            // Camera-parallel plane drag
+            glm::vec3 planeNorm = glm::normalize(m_camera.position() - m_gizmoDragOrigGlPos);
+            float denom = glm::dot(rayDir, planeNorm);
+            if (std::abs(denom) > 1e-6f) {
+                float t = glm::dot(m_gizmoDragOrigGlPos - rayOri, planeNorm) / denom;
+                glm::vec3 hit = rayOri + t * rayDir;
+                glm::vec3 newGlPos = m_gizmoDragOrigGlPos + (hit - m_gizmoDragScreenHit0);
+                m_network.roads[ri].points[pi].pos = {-newGlPos.x, newGlPos.y, newGlPos.z};
+            }
+        } else if (m_gizmoDragAxis != TransformGizmo::Axis::None) {
             // Axis-constrained drag
             glm::vec3 axDir = TransformGizmo::axisDir(m_gizmoDragAxis);
             float t = TransformGizmo::axisTParam(rayOri, rayDir,

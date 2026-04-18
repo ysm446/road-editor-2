@@ -79,9 +79,10 @@ private:
     glm::vec3 m_dragPlaneY  = {0, 0, 0};
     bool      m_altDown     = false;
 
-    // Gizmo axis drag state
-    TransformGizmo::Axis m_gizmoHover        = TransformGizmo::Axis::None;
-    TransformGizmo::Axis m_gizmoDragAxis     = TransformGizmo::Axis::None;
-    float                m_gizmoDragT0       = 0.0f;
-    glm::vec3            m_gizmoDragOrigGlPos = {0.0f, 0.0f, 0.0f};
+    // Gizmo drag state
+    TransformGizmo::Axis m_gizmoHover           = TransformGizmo::Axis::None;
+    TransformGizmo::Axis m_gizmoDragAxis        = TransformGizmo::Axis::None;
+    float                m_gizmoDragT0          = 0.0f;
+    glm::vec3            m_gizmoDragOrigGlPos   = {0.0f, 0.0f, 0.0f};
+    glm::vec3            m_gizmoDragScreenHit0  = {0.0f, 0.0f, 0.0f};
 };

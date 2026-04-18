@@ -26,7 +26,7 @@ public:
 
 public slots:
     void setToolMode(ToolMode m);
-    void applyRoadProperties(int roadIdx, float speed, float leftWidth, float rightWidth, float segmentLength);
+    void applyRoadProperties(int roadIdx, float speed, float leftWidth, float rightWidth, float segmentLength, bool equalMidpoint);
     void setWireframe(bool on);
 
 signals:

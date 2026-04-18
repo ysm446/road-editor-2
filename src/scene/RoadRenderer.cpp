@@ -31,7 +31,7 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     m_roads.begin();
     for (const auto& road : net.roads) {
         if (road.points.size() < 2) continue;
-        auto curve = ClothoidGen::buildCenterlineDetailed(road.points, road.segmentLength);
+        auto curve = ClothoidGen::buildCenterlineDetailed(road.points, road.segmentLength, road.equalMidpoint);
         for (size_t i = 0; i + 1 < curve.size(); ++i)
             m_roads.addLine(toGL(curve[i].pos), toGL(curve[i + 1].pos),
                             kindColor(curve[i].kind));

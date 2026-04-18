@@ -1,4 +1,5 @@
 #include "PropertiesPanel.h"
+#include <QCheckBox>
 #include <QFormLayout>
 #include <QVBoxLayout>
 #include <QLabel>
@@ -42,6 +43,12 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     m_segmentLengthSpin->setToolTip("Mesh tessellation interval along the road direction");
     form->addRow("Segment Length:", m_segmentLengthSpin);
 
+    m_equalMidpointCheck = new QCheckBox("Equal midpoint (t=0.5)", this);
+    m_equalMidpointCheck->setToolTip(
+        "Checked: bend pivot is at the exact midpoint of each edge\n"
+        "Unchecked: pivot is weighted by adjacent edge lengths (proportional)");
+    form->addRow("Midpoint split:", m_equalMidpointCheck);
+
     root->addWidget(grp);
 
     auto* applyBtn = new QPushButton("Apply", this);
@@ -83,16 +90,19 @@ void PropertiesPanel::populate(const Road& road) {
     m_leftWidthSpin->blockSignals(true);
     m_rightWidthSpin->blockSignals(true);
     m_segmentLengthSpin->blockSignals(true);
+    m_equalMidpointCheck->blockSignals(true);
 
     m_speedSpin->setValue(road.defaultTargetSpeed);
     m_leftWidthSpin->setValue(road.defaultWidthLaneLeft1);
     m_rightWidthSpin->setValue(road.defaultWidthLaneRight1);
     m_segmentLengthSpin->setValue(static_cast<double>(road.segmentLength));
+    m_equalMidpointCheck->setChecked(road.equalMidpoint);
 
     m_speedSpin->blockSignals(false);
     m_leftWidthSpin->blockSignals(false);
     m_rightWidthSpin->blockSignals(false);
     m_segmentLengthSpin->blockSignals(false);
+    m_equalMidpointCheck->blockSignals(false);
 }
 
 void PropertiesPanel::setEnabled(bool on) {
@@ -100,6 +110,7 @@ void PropertiesPanel::setEnabled(bool on) {
     m_leftWidthSpin->setEnabled(on);
     m_rightWidthSpin->setEnabled(on);
     m_segmentLengthSpin->setEnabled(on);
+    m_equalMidpointCheck->setEnabled(on);
 }
 
 void PropertiesPanel::applyChanges() {
@@ -108,5 +119,6 @@ void PropertiesPanel::applyChanges() {
                       static_cast<float>(m_speedSpin->value()),
                       static_cast<float>(m_leftWidthSpin->value()),
                       static_cast<float>(m_rightWidthSpin->value()),
-                      static_cast<float>(m_segmentLengthSpin->value()));
+                      static_cast<float>(m_segmentLengthSpin->value()),
+                      m_equalMidpointCheck->isChecked());
 }

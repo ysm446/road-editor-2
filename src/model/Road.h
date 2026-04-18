@@ -43,6 +43,7 @@ struct Road {
     float defaultWidthLaneRight1 = 4.0f;
     float defaultWidthLaneCenter = 0.0f;
     float segmentLength          = 1.0f; // mesh tessellation interval along travel direction (m)
+    bool  equalMidpoint          = false; // if true, use true midpoint (t=0.5) instead of proportional split
     int   roadType = 0;
     bool  closed   = false;
     int   active   = 1;

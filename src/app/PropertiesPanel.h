@@ -3,6 +3,7 @@
 #include <QWidget>
 #include "../model/RoadNetwork.h"
 
+class QCheckBox;
 class QDoubleSpinBox;
 class QLabel;
 
@@ -31,7 +32,8 @@ private:
     QDoubleSpinBox* m_leftWidthSpin;
     QDoubleSpinBox* m_rightWidthSpin;
     QDoubleSpinBox* m_segmentLengthSpin;
+    QCheckBox*      m_equalMidpointCheck;
 
 signals:
-    void roadModified(int roadIdx, float speed, float leftWidth, float rightWidth, float segmentLength);
+    void roadModified(int roadIdx, float speed, float leftWidth, float rightWidth, float segmentLength, bool equalMidpoint);
 };

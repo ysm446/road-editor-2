@@ -343,7 +343,8 @@ namespace ClothoidGen {
 
 std::vector<glm::vec3> buildCenterline(
     const std::vector<ControlPoint>& pts,
-    float sampleInterval)
+    float sampleInterval,
+    bool  equalMidpoint)
 {
     using v3 = glm::vec3;
     std::vector<v3> out;
@@ -355,16 +356,20 @@ std::vector<glm::vec3> buildCenterline(
         return out;
     }
 
-    // Compute edge-midpoints (weighted so adjacent clothoids share available space).
-    // t = prevEdgeLen / (prevEdgeLen + thisEdgeLen) along each edge.
+    // Compute edge-midpoints.
+    // equalMidpoint=true  → t=0.5 (true midpoint of each edge)
+    // equalMidpoint=false → t = prevEdgeLen / (prevEdgeLen + thisEdgeLen)
     std::vector<v3> mid(n - 1);
     for (int e = 0; e < n - 1; ++e) {
-        float prevLen = (e > 0)
-            ? glm::distance(pts[e - 1].pos, pts[e].pos)
-            : 0.0f;
-        float thisLen = glm::distance(pts[e].pos, pts[e + 1].pos);
-        float sum = prevLen + thisLen;
-        float t = (sum > 1e-5f) ? prevLen / sum : 0.5f;
+        float t = 0.5f;
+        if (!equalMidpoint) {
+            float prevLen = (e > 0)
+                ? glm::distance(pts[e - 1].pos, pts[e].pos)
+                : 0.0f;
+            float thisLen = glm::distance(pts[e].pos, pts[e + 1].pos);
+            float sum = prevLen + thisLen;
+            t = (sum > 1e-5f) ? prevLen / sum : 0.5f;
+        }
         mid[e] = glm::mix(pts[e].pos, pts[e + 1].pos, t);
     }
 
@@ -432,7 +437,8 @@ std::vector<glm::vec3> buildAndResample(
 
 std::vector<CurvePt> buildCenterlineDetailed(
     const std::vector<ControlPoint>& pts,
-    float sampleInterval)
+    float sampleInterval,
+    bool  equalMidpoint)
 {
     using v3 = glm::vec3;
     std::vector<CurvePt> out;
@@ -446,12 +452,15 @@ std::vector<CurvePt> buildCenterlineDetailed(
 
     std::vector<v3> mid(n - 1);
     for (int e = 0; e < n - 1; ++e) {
-        float prevLen = (e > 0)
-            ? glm::distance(pts[e - 1].pos, pts[e].pos)
-            : 0.0f;
-        float thisLen = glm::distance(pts[e].pos, pts[e + 1].pos);
-        float sum = prevLen + thisLen;
-        float t = (sum > 1e-5f) ? prevLen / sum : 0.5f;
+        float t = 0.5f;
+        if (!equalMidpoint) {
+            float prevLen = (e > 0)
+                ? glm::distance(pts[e - 1].pos, pts[e].pos)
+                : 0.0f;
+            float thisLen = glm::distance(pts[e].pos, pts[e + 1].pos);
+            float sum = prevLen + thisLen;
+            t = (sum > 1e-5f) ? prevLen / sum : 0.5f;
+        }
         mid[e] = glm::mix(pts[e].pos, pts[e + 1].pos, t);
     }
 

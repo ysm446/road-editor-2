@@ -15,7 +15,7 @@ void RoadMeshGen::generate(const Road&                 road,
     // Use the road's segmentLength as the tessellation interval.
     const float sampleInterval = std::max(road.segmentLength, 0.01f);
     const std::vector<glm::vec3> worldSamples =
-        ClothoidGen::buildCenterline(pts, sampleInterval);
+        ClothoidGen::buildCenterline(pts, sampleInterval, road.equalMidpoint);
 
     if (worldSamples.size() < 2) return;
 

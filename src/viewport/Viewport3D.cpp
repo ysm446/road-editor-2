@@ -89,7 +89,7 @@ void Viewport3D::setWireframe(bool on) {
 }
 
 
-void Viewport3D::applyRoadProperties(int roadIdx, float speed, float leftWidth, float rightWidth, float segmentLength) {
+void Viewport3D::applyRoadProperties(int roadIdx, float speed, float leftWidth, float rightWidth, float segmentLength, bool equalMidpoint) {
     if (roadIdx < 0 || roadIdx >= static_cast<int>(m_network.roads.size())) return;
     m_editor.pushUndo(m_network);
     auto& road = m_network.roads[roadIdx];
@@ -97,6 +97,7 @@ void Viewport3D::applyRoadProperties(int roadIdx, float speed, float leftWidth, 
     road.defaultWidthLaneLeft1  = leftWidth;
     road.defaultWidthLaneRight1 = rightWidth;
     road.segmentLength          = std::max(segmentLength, 0.01f);
+    road.equalMidpoint          = equalMidpoint;
     makeCurrent();
     m_roadRenderer.rebuild(this, m_network);
     doneCurrent();

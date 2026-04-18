@@ -1,5 +1,6 @@
 #include "Viewport3D.h"
 #include "BuildConfig.h"
+#include "../generator/ClothoidGen.h"
 #include "../model/Serializer.h"
 #include <QApplication>
 #include <QCoreApplication>
@@ -79,13 +80,20 @@ void Viewport3D::setToolMode(ToolMode m) {
     m_editor.mode = m;
 }
 
-void Viewport3D::applyRoadProperties(int roadIdx, float speed, float leftWidth, float rightWidth) {
+void Viewport3D::setWireframe(bool on) {
+    m_roadRenderer.setWireframe(on);
+    update();
+}
+
+
+void Viewport3D::applyRoadProperties(int roadIdx, float speed, float leftWidth, float rightWidth, float segmentLength) {
     if (roadIdx < 0 || roadIdx >= static_cast<int>(m_network.roads.size())) return;
     m_editor.pushUndo(m_network);
     auto& road = m_network.roads[roadIdx];
-    road.defaultTargetSpeed    = speed;
+    road.defaultTargetSpeed     = speed;
     road.defaultWidthLaneLeft1  = leftWidth;
     road.defaultWidthLaneRight1 = rightWidth;
+    road.segmentLength          = std::max(segmentLength, 0.01f);
     makeCurrent();
     m_roadRenderer.rebuild(this, m_network);
     doneCurrent();

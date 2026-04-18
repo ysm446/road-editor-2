@@ -26,7 +26,8 @@ public:
 
 public slots:
     void setToolMode(ToolMode m);
-    void applyRoadProperties(int roadIdx, float speed, float leftWidth, float rightWidth);
+    void applyRoadProperties(int roadIdx, float speed, float leftWidth, float rightWidth, float segmentLength);
+    void setWireframe(bool on);
 
 signals:
     void selectionChanged(int roadIdx);  // -1 = deselected

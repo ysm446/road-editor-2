@@ -33,6 +33,15 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     m_rightWidthSpin->setRange(0, 50); m_rightWidthSpin->setSuffix(" m"); m_rightWidthSpin->setDecimals(2);
     form->addRow("Right Width:", m_rightWidthSpin);
 
+    m_segmentLengthSpin = new QDoubleSpinBox(this);
+    m_segmentLengthSpin->setRange(0.1, 50.0);
+    m_segmentLengthSpin->setValue(1.0);
+    m_segmentLengthSpin->setSuffix(" m");
+    m_segmentLengthSpin->setDecimals(2);
+    m_segmentLengthSpin->setSingleStep(0.5);
+    m_segmentLengthSpin->setToolTip("Mesh tessellation interval along the road direction");
+    form->addRow("Segment Length:", m_segmentLengthSpin);
+
     root->addWidget(grp);
 
     auto* applyBtn = new QPushButton("Apply", this);
@@ -73,20 +82,24 @@ void PropertiesPanel::populate(const Road& road) {
     m_speedSpin->blockSignals(true);
     m_leftWidthSpin->blockSignals(true);
     m_rightWidthSpin->blockSignals(true);
+    m_segmentLengthSpin->blockSignals(true);
 
     m_speedSpin->setValue(road.defaultTargetSpeed);
     m_leftWidthSpin->setValue(road.defaultWidthLaneLeft1);
     m_rightWidthSpin->setValue(road.defaultWidthLaneRight1);
+    m_segmentLengthSpin->setValue(static_cast<double>(road.segmentLength));
 
     m_speedSpin->blockSignals(false);
     m_leftWidthSpin->blockSignals(false);
     m_rightWidthSpin->blockSignals(false);
+    m_segmentLengthSpin->blockSignals(false);
 }
 
 void PropertiesPanel::setEnabled(bool on) {
     m_speedSpin->setEnabled(on);
     m_leftWidthSpin->setEnabled(on);
     m_rightWidthSpin->setEnabled(on);
+    m_segmentLengthSpin->setEnabled(on);
 }
 
 void PropertiesPanel::applyChanges() {
@@ -94,5 +107,6 @@ void PropertiesPanel::applyChanges() {
     emit roadModified(m_roadIdx,
                       static_cast<float>(m_speedSpin->value()),
                       static_cast<float>(m_leftWidthSpin->value()),
-                      static_cast<float>(m_rightWidthSpin->value()));
+                      static_cast<float>(m_rightWidthSpin->value()),
+                      static_cast<float>(m_segmentLengthSpin->value()));
 }

@@ -3,9 +3,7 @@
 #include <QWidget>
 #include "../model/RoadNetwork.h"
 
-class QLineEdit;
 class QDoubleSpinBox;
-class QSpinBox;
 class QLabel;
 
 class PropertiesPanel : public QWidget {
@@ -25,14 +23,15 @@ private:
     void setEnabled(bool on);
     void populate(const Road& road);
 
-    const RoadNetwork* m_net    = nullptr;
+    const RoadNetwork* m_net     = nullptr;
     int                m_roadIdx = -1;
 
-    QLabel*        m_nameLabel;
+    QLabel*         m_nameLabel;
     QDoubleSpinBox* m_speedSpin;
     QDoubleSpinBox* m_leftWidthSpin;
     QDoubleSpinBox* m_rightWidthSpin;
+    QDoubleSpinBox* m_segmentLengthSpin;
 
 signals:
-    void roadModified(int roadIdx, float speed, float leftWidth, float rightWidth);
+    void roadModified(int roadIdx, float speed, float leftWidth, float rightWidth, float segmentLength);
 };

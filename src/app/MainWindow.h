@@ -23,8 +23,9 @@ private:
     PropertiesPanel* m_properties  = nullptr;
     OutlinerPanel*   m_outliner    = nullptr;
 
-    QAction* m_selectModeAct = nullptr;
-    QAction* m_editModeAct   = nullptr;
+    QAction* m_selectModeAct  = nullptr;
+    QAction* m_editModeAct    = nullptr;
+    QAction* m_wireframeAct   = nullptr;
 
     QString m_currentPath;
 

@@ -22,9 +22,12 @@ public:
                  Shader& lineShader, Shader& roadShader,
                  const glm::mat4& vp);
 
+    void setWireframe(bool on) { m_wireframe = on; }
+
     void destroy(QOpenGLFunctions_4_1_Core* f);
 
 private:
+    bool m_wireframe = false;
     LineBatch m_roads;       // centerlines
     LineBatch m_nodes;       // intersection markers
     LineBatch m_selBatch;    // selected control point highlight

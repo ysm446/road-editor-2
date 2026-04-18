@@ -75,17 +75,31 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
 
     // --- Road surface (draw first so lines appear on top) ---
     f->glDisable(GL_CULL_FACE);
-    f->glEnable(GL_POLYGON_OFFSET_FILL);
-    f->glPolygonOffset(2.0f, 2.0f); // push surface behind lines
 
-    roadShader.bind();
-    roadShader.setMat4(f, "u_mvp",    vp);
-    roadShader.setVec3(f, "u_sunDir", glm::normalize(glm::vec3(0.4f, 1.0f, 0.5f)));
-    roadShader.setVec3(f, "u_color",  glm::vec3(0.30f, 0.30f, 0.30f));
-    m_surfaceMesh.draw(f);
-    roadShader.unbind();
+    if (m_wireframe) {
+        f->glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-    f->glDisable(GL_POLYGON_OFFSET_FILL);
+        roadShader.bind();
+        roadShader.setMat4(f, "u_mvp",    vp);
+        roadShader.setVec3(f, "u_sunDir", glm::normalize(glm::vec3(0.4f, 1.0f, 0.5f)));
+        roadShader.setVec3(f, "u_color",  glm::vec3(0.30f, 0.65f, 0.30f));
+        m_surfaceMesh.draw(f);
+        roadShader.unbind();
+
+        f->glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    } else {
+        f->glEnable(GL_POLYGON_OFFSET_FILL);
+        f->glPolygonOffset(2.0f, 2.0f);
+
+        roadShader.bind();
+        roadShader.setMat4(f, "u_mvp",    vp);
+        roadShader.setVec3(f, "u_sunDir", glm::normalize(glm::vec3(0.4f, 1.0f, 0.5f)));
+        roadShader.setVec3(f, "u_color",  glm::vec3(0.30f, 0.30f, 0.30f));
+        m_surfaceMesh.draw(f);
+        roadShader.unbind();
+
+        f->glDisable(GL_POLYGON_OFFSET_FILL);
+    }
 
     // --- Centerlines, markers and selection on top ---
     m_roads.draw(f, lineShader, vp);

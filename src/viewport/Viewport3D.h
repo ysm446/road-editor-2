@@ -12,6 +12,7 @@
 #include "../renderer/Shader.h"
 #include "../model/RoadNetwork.h"
 #include "../scene/RoadRenderer.h"
+#include "../scene/TransformGizmo.h"
 #include "../editor/EditorState.h"
 #include "../app/PropertiesPanel.h"
 
@@ -51,29 +52,36 @@ private:
     glm::vec3 screenToRay(const QPoint& p) const;
     bool pickControlPoint(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
                           int& outRoadIdx, int& outPointIdx);
-    int  pickRoad(const QPoint& screenPos) const; // returns roadIdx or -1
+    int  pickRoad(const QPoint& screenPos) const;
     glm::vec3 rayHitY(const glm::vec3& origin, const glm::vec3& dir, float y) const;
 
-    Camera       m_camera;
-    Grid         m_grid;
-    AxisGizmo    m_axisGizmo;
-    Shader       m_lineShader;
-    Shader       m_roadShader;
-    Shader       m_pointShader;
-    QTimer       m_timer;
-    QPoint       m_lastPos;
-    bool         m_rotating  = false;
-    bool         m_panning   = false;
-    float        m_aspect    = 1.0f;
-    bool         m_glReady   = false;
+    Camera         m_camera;
+    Grid           m_grid;
+    AxisGizmo      m_axisGizmo;
+    Shader         m_lineShader;
+    Shader         m_roadShader;
+    Shader         m_pointShader;
+    QTimer         m_timer;
+    QPoint         m_lastPos;
+    bool           m_rotating  = false;
+    bool           m_panning   = false;
+    float          m_aspect    = 1.0f;
+    bool           m_glReady   = false;
 
-    RoadNetwork  m_network;
-    RoadRenderer m_roadRenderer;
-    EditorState  m_editor;
-    QString      m_pendingPath;
+    RoadNetwork    m_network;
+    RoadRenderer   m_roadRenderer;
+    TransformGizmo m_transformGizmo;
+    EditorState    m_editor;
+    QString        m_pendingPath;
 
-    // Drag state
+    // Free-plane drag state
     bool      m_dragging    = false;
     glm::vec3 m_dragPlaneY  = {0, 0, 0};
     bool      m_altDown     = false;
+
+    // Gizmo axis drag state
+    TransformGizmo::Axis m_gizmoHover        = TransformGizmo::Axis::None;
+    TransformGizmo::Axis m_gizmoDragAxis     = TransformGizmo::Axis::None;
+    float                m_gizmoDragT0       = 0.0f;
+    glm::vec3            m_gizmoDragOrigGlPos = {0.0f, 0.0f, 0.0f};
 };

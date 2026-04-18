@@ -26,6 +26,7 @@ Viewport3D::~Viewport3D() {
     m_grid.destroy(this);
     m_axisGizmo.destroy(this);
     m_roadRenderer.destroy(this);
+    m_transformGizmo.destroy(this);
     doneCurrent();
 }
 
@@ -54,6 +55,7 @@ void Viewport3D::initializeGL() {
     m_grid.init(this);
     m_axisGizmo.init(this);
     m_roadRenderer.init(this);
+    m_transformGizmo.init(this);
     m_glReady = true;
 
     if (!m_pendingPath.isEmpty()) {
@@ -73,9 +75,25 @@ void Viewport3D::paintGL() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glm::mat4 view = m_camera.viewMatrix();
-    glm::mat4 vp = m_camera.projMatrix(m_aspect) * view;
+    glm::mat4 vp   = m_camera.projMatrix(m_aspect) * view;
     m_grid.draw(this, m_lineShader, vp);
     m_roadRenderer.draw(this, m_lineShader, m_roadShader, m_pointShader, vp);
+
+    // Transform gizmo — drawn over road geometry, depth-test disabled
+    if (m_glReady && m_editor.mode == ToolMode::Edit &&
+        m_editor.sel.roadIdx  >= 0 &&
+        m_editor.sel.pointIdx >= 0 &&
+        m_editor.sel.roadIdx  < (int)m_network.roads.size())
+    {
+        const auto& pt = m_network.roads[m_editor.sel.roadIdx]
+                                   .points[m_editor.sel.pointIdx];
+        glm::vec3 glPos = {-pt.pos.x, pt.pos.y, pt.pos.z};
+        m_transformGizmo.rebuild(this, glPos, m_camera.position(), m_gizmoHover);
+        glDisable(GL_DEPTH_TEST);
+        m_transformGizmo.draw(this, m_lineShader, vp);
+        glEnable(GL_DEPTH_TEST);
+    }
+
     m_axisGizmo.draw(this, m_lineShader, view, width(), height());
 }
 
@@ -282,7 +300,32 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
             }
             m_dragging = false;
         } else {
-            // Edit mode: pick control point first; fall back to road selection
+            // Edit mode: check gizmo axis first (only if a point is already selected)
+            if (m_editor.sel.roadIdx  >= 0 &&
+                m_editor.sel.pointIdx >= 0 &&
+                m_editor.sel.roadIdx  < (int)m_network.roads.size())
+            {
+                const auto& pt = m_network.roads[m_editor.sel.roadIdx]
+                                           .points[m_editor.sel.pointIdx];
+                glm::vec3 glPos = {-pt.pos.x, pt.pos.y, pt.pos.z};
+                glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+                auto axis = m_transformGizmo.hitTest(
+                    e->pos(), glPos, m_camera.position(), vpMat, width(), height());
+
+                if (axis != TransformGizmo::Axis::None) {
+                    m_gizmoDragAxis     = axis;
+                    m_gizmoDragOrigGlPos = glPos;
+                    float t = TransformGizmo::axisTParam(
+                        rayOri, rayDir, glPos,
+                        TransformGizmo::axisDir(axis));
+                    m_gizmoDragT0 = t;
+                    m_dragging    = true;
+                    m_editor.pushUndo(m_network);
+                    return;
+                }
+            }
+
+            // Pick control point; fall back to road selection
             int ri = -1, pi = -1;
             if (pickControlPoint(rayOri, rayDir, ri, pi)) {
                 bool roadChanged = m_editor.sel.roadIdx  != ri;
@@ -342,11 +385,21 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
     if (m_dragging && m_editor.sel.valid() && !(e->modifiers() & Qt::AltModifier)) {
         glm::vec3 rayDir = screenToRay(e->pos());
         glm::vec3 rayOri = m_camera.position();
-        glm::vec3 hit = rayHitY(rayOri, rayDir, m_dragPlaneY.y);
-
         int ri = m_editor.sel.roadIdx;
         int pi = m_editor.sel.pointIdx;
-        m_network.roads[ri].points[pi].pos = {-hit.x, hit.y, hit.z};
+
+        if (m_gizmoDragAxis != TransformGizmo::Axis::None) {
+            // Axis-constrained drag
+            glm::vec3 axDir = TransformGizmo::axisDir(m_gizmoDragAxis);
+            float t = TransformGizmo::axisTParam(rayOri, rayDir,
+                                                  m_gizmoDragOrigGlPos, axDir);
+            glm::vec3 newGlPos = m_gizmoDragOrigGlPos + (t - m_gizmoDragT0) * axDir;
+            m_network.roads[ri].points[pi].pos = {-newGlPos.x, newGlPos.y, newGlPos.z};
+        } else {
+            // Free horizontal-plane drag
+            glm::vec3 hit = rayHitY(rayOri, rayDir, m_dragPlaneY.y);
+            m_network.roads[ri].points[pi].pos = {-hit.x, hit.y, hit.z};
+        }
 
         makeCurrent();
         m_roadRenderer.rebuild(this, m_network);
@@ -354,14 +407,33 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
         doneCurrent();
         emit networkChanged();
     }
+
+    // Update gizmo hover highlight when not dragging
+    if (!m_dragging && m_glReady && m_editor.mode == ToolMode::Edit &&
+        m_editor.sel.roadIdx  >= 0 &&
+        m_editor.sel.pointIdx >= 0 &&
+        m_editor.sel.roadIdx  < (int)m_network.roads.size())
+    {
+        const auto& pt = m_network.roads[m_editor.sel.roadIdx]
+                                   .points[m_editor.sel.pointIdx];
+        glm::vec3 glPos = {-pt.pos.x, pt.pos.y, pt.pos.z};
+        glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+        auto newHover = m_transformGizmo.hitTest(
+            e->pos(), glPos, m_camera.position(), vpMat, width(), height());
+        if (newHover != m_gizmoHover) {
+            m_gizmoHover = newHover;
+            update();
+        }
+    }
 }
 
 void Viewport3D::mouseReleaseEvent(QMouseEvent* e) {
     if (e->button() == Qt::LeftButton) {
-        m_dragging = false;
+        m_dragging       = false;
+        m_gizmoDragAxis  = TransformGizmo::Axis::None;
     }
     m_rotating = false;
-    m_panning = false;
+    m_panning  = false;
 }
 
 void Viewport3D::wheelEvent(QWheelEvent* e) {

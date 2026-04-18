@@ -50,6 +50,7 @@ private:
     glm::vec3 screenToRay(const QPoint& p) const;
     bool pickControlPoint(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
                           int& outRoadIdx, int& outPointIdx);
+    int  pickRoad(const QPoint& screenPos) const; // returns roadIdx or -1
     glm::vec3 rayHitY(const glm::vec3& origin, const glm::vec3& dir, float y) const;
 
     Camera       m_camera;
@@ -57,6 +58,7 @@ private:
     AxisGizmo    m_axisGizmo;
     Shader       m_lineShader;
     Shader       m_roadShader;
+    Shader       m_pointShader;
     QTimer       m_timer;
     QPoint       m_lastPos;
     bool         m_rotating  = false;

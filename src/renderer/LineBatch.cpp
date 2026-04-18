@@ -34,6 +34,10 @@ void LineBatch::addLine(const glm::vec3& a, const glm::vec3& b, const glm::vec3&
     m_verts.push_back({b, color});
 }
 
+void LineBatch::addPoint(const glm::vec3& p, const glm::vec3& color) {
+    m_verts.push_back({p, color});
+}
+
 void LineBatch::upload(QOpenGLFunctions_4_1_Core* f) {
     m_count = static_cast<int>(m_verts.size());
     if (m_count == 0) return;
@@ -53,6 +57,19 @@ void LineBatch::draw(QOpenGLFunctions_4_1_Core* f, Shader& sh, const glm::mat4& 
     sh.setMat4(f, "u_vp", vp);
     f->glBindVertexArray(m_vao);
     f->glDrawArrays(GL_LINES, 0, m_count);
+    f->glBindVertexArray(0);
+    sh.unbind();
+}
+
+void LineBatch::drawPoints(QOpenGLFunctions_4_1_Core* f, Shader& sh,
+                           const glm::mat4& vp, float pointSize) {
+    if (!m_ready || m_count == 0) return;
+
+    sh.bind();
+    sh.setMat4(f, "u_vp", vp);
+    sh.setFloat(f, "u_pointSize", pointSize);
+    f->glBindVertexArray(m_vao);
+    f->glDrawArrays(GL_POINTS, 0, m_count);
     f->glBindVertexArray(0);
     sh.unbind();
 }

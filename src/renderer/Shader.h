@@ -12,9 +12,10 @@ public:
     void bind();
     void unbind();
 
-    void setMat4(QOpenGLFunctions_4_1_Core* f, const char* name, const glm::mat4& mat);
-    void setVec3(QOpenGLFunctions_4_1_Core* f, const char* name, const glm::vec3& v);
-    void setVec4(QOpenGLFunctions_4_1_Core* f, const char* name, const glm::vec4& v);
+    void setMat4 (QOpenGLFunctions_4_1_Core* f, const char* name, const glm::mat4& mat);
+    void setVec3 (QOpenGLFunctions_4_1_Core* f, const char* name, const glm::vec3& v);
+    void setVec4 (QOpenGLFunctions_4_1_Core* f, const char* name, const glm::vec4& v);
+    void setFloat(QOpenGLFunctions_4_1_Core* f, const char* name, float v);
 
     bool isValid() const { return m_prog.isLinked(); }
     GLuint programId() const { return m_prog.programId(); }

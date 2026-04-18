@@ -38,3 +38,9 @@ void Shader::setVec4(QOpenGLFunctions_4_1_Core* f, const char* name, const glm::
     if (loc >= 0)
         f->glUniform4f(loc, v.x, v.y, v.z, v.w);
 }
+
+void Shader::setFloat(QOpenGLFunctions_4_1_Core* f, const char* name, float v) {
+    int loc = m_prog.uniformLocation(name);
+    if (loc >= 0)
+        f->glUniform1f(loc, v);
+}

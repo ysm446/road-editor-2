@@ -47,6 +47,9 @@ void Viewport3D::initializeGL() {
     if (!m_roadShader.load(shaderDir + "road.vert", shaderDir + "road.frag")) {
         qWarning() << "Road shader load failed - check shaders/ directory";
     }
+    if (!m_pointShader.load(shaderDir + "point.vert", shaderDir + "point.frag")) {
+        qWarning() << "Point shader load failed - check shaders/ directory";
+    }
 
     m_grid.init(this);
     m_axisGizmo.init(this);
@@ -72,7 +75,7 @@ void Viewport3D::paintGL() {
     glm::mat4 view = m_camera.viewMatrix();
     glm::mat4 vp = m_camera.projMatrix(m_aspect) * view;
     m_grid.draw(this, m_lineShader, vp);
-    m_roadRenderer.draw(this, m_lineShader, m_roadShader, vp);
+    m_roadRenderer.draw(this, m_lineShader, m_roadShader, m_pointShader, vp);
     m_axisGizmo.draw(this, m_lineShader, view, width(), height());
 }
 
@@ -136,6 +139,52 @@ glm::vec3 Viewport3D::screenToRay(const QPoint& p) const {
 glm::vec3 Viewport3D::rayHitY(const glm::vec3& origin, const glm::vec3& dir, float y) const {
     float t = (std::abs(dir.y) > 1e-6f) ? (y - origin.y) / dir.y : 0.0f;
     return origin + dir * t;
+}
+
+int Viewport3D::pickRoad(const QPoint& screenPos) const {
+    const float kPickRadiusSq = 12.0f * 12.0f; // pixels
+    float bestDist = std::numeric_limits<float>::max();
+    int bestRoad = -1;
+
+    glm::mat4 vp = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+    glm::vec2 mp = { float(screenPos.x()), float(screenPos.y()) };
+
+    auto project = [&](glm::vec3 worldPos) -> std::pair<glm::vec2, bool> {
+        glm::vec4 clip = vp * glm::vec4(-worldPos.x, worldPos.y, worldPos.z, 1.0f);
+        if (clip.w <= 0.0f) return {{}, false};
+        glm::vec3 ndc = glm::vec3(clip) / clip.w;
+        return {{ (ndc.x + 1.0f) * 0.5f * width(),
+                  (1.0f - ndc.y) * 0.5f * height() }, true};
+    };
+
+    for (int ri = 0; ri < static_cast<int>(m_network.roads.size()); ++ri) {
+        const auto& road = m_network.roads[ri];
+        for (size_t i = 0; i + 1 < road.points.size(); ++i) {
+            auto [sa, okA] = project(road.points[i    ].pos);
+            auto [sb, okB] = project(road.points[i + 1].pos);
+            if (!okA || !okB) continue;
+
+            // Distance from mp to segment sa→sb
+            glm::vec2 ab = sb - sa;
+            float lenSq = glm::dot(ab, ab);
+            float distSq;
+            if (lenSq < 1e-6f) {
+                glm::vec2 d = mp - sa;
+                distSq = glm::dot(d, d);
+            } else {
+                float t = std::clamp(glm::dot(mp - sa, ab) / lenSq, 0.0f, 1.0f);
+                glm::vec2 proj = sa + t * ab;
+                glm::vec2 d = mp - proj;
+                distSq = glm::dot(d, d);
+            }
+
+            if (distSq < kPickRadiusSq && distSq < bestDist) {
+                bestDist = distSq;
+                bestRoad = ri;
+            }
+        }
+    }
+    return bestRoad;
 }
 
 bool Viewport3D::pickControlPoint(
@@ -203,15 +252,11 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
         glm::vec3 rayDir = screenToRay(e->pos());
         glm::vec3 rayOri = m_camera.position();
 
-        int ri = -1;
-        int pi = -1;
-        if (pickControlPoint(rayOri, rayDir, ri, pi)) {
-            bool roadChanged = m_editor.sel.roadIdx != ri;
-            bool ptChanged   = m_editor.sel.pointIdx != pi;
-
-            if (m_editor.mode == ToolMode::Select) {
-                // Select mode: highlight road only, no dragging
-                if (roadChanged) {
+        if (m_editor.mode == ToolMode::Select) {
+            // Select mode: pick road by edge proximity, no dragging
+            int ri = pickRoad(e->pos());
+            if (ri >= 0) {
+                if (m_editor.sel.roadIdx != ri) {
                     m_editor.sel.roadIdx  = ri;
                     m_editor.sel.pointIdx = -1;
                     makeCurrent();
@@ -219,9 +264,20 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
                     doneCurrent();
                     emit selectionChanged(ri);
                 }
-                m_dragging = false;
             } else {
-                // Edit mode: pick individual control point and allow drag
+                m_editor.sel.clear();
+                makeCurrent();
+                m_roadRenderer.updateSelection(this, m_network, -1, -1);
+                doneCurrent();
+                emit selectionChanged(-1);
+            }
+            m_dragging = false;
+        } else {
+            // Edit mode: pick control point first; fall back to road selection
+            int ri = -1, pi = -1;
+            if (pickControlPoint(rayOri, rayDir, ri, pi)) {
+                bool roadChanged = m_editor.sel.roadIdx  != ri;
+                bool ptChanged   = m_editor.sel.pointIdx != pi;
                 if (roadChanged || ptChanged) {
                     m_editor.sel.roadIdx  = ri;
                     m_editor.sel.pointIdx = pi;
@@ -232,20 +288,33 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
                 }
                 glm::vec3 glPos = {
                     -m_network.roads[ri].points[pi].pos.x,
-                    m_network.roads[ri].points[pi].pos.y,
-                    m_network.roads[ri].points[pi].pos.z,
+                     m_network.roads[ri].points[pi].pos.y,
+                     m_network.roads[ri].points[pi].pos.z,
                 };
                 m_dragging   = true;
                 m_dragPlaneY = glPos;
                 m_editor.pushUndo(m_network);
+            } else {
+                // No vertex hit — try road edge for selection only
+                ri = pickRoad(e->pos());
+                if (ri >= 0) {
+                    if (m_editor.sel.roadIdx != ri) {
+                        m_editor.sel.roadIdx  = ri;
+                        m_editor.sel.pointIdx = -1;
+                        makeCurrent();
+                        m_roadRenderer.updateSelection(this, m_network, ri, -1);
+                        doneCurrent();
+                        emit selectionChanged(ri);
+                    }
+                } else {
+                    m_editor.sel.clear();
+                    makeCurrent();
+                    m_roadRenderer.updateSelection(this, m_network, -1, -1);
+                    doneCurrent();
+                    emit selectionChanged(-1);
+                }
+                m_dragging = false;
             }
-        } else {
-            m_editor.sel.clear();
-            m_dragging = false;
-            makeCurrent();
-            m_roadRenderer.updateSelection(this, m_network, -1, -1);
-            doneCurrent();
-            emit selectionChanged(-1);
         }
     }
 }

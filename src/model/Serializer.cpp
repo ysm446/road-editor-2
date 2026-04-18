@@ -55,9 +55,16 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
         r.endIntersectionId      = jr.value("endIntersectionId",      "");
         r.defaultTargetSpeed     = jr.value("defaultTargetSpeed",     40.0f);
         r.defaultFriction        = jr.value("defaultFriction",        0.15f);
+        r.useLaneLeft2           = jr.value("useLaneLeft2",           false);
+        r.defaultWidthLaneLeft2  = jr.value("defaultWidthLaneLeft2",  3.5f);
+        r.useLaneLeft1           = jr.value("useLaneLeft1",           true);
         r.defaultWidthLaneLeft1  = jr.value("defaultWidthLaneLeft1",  4.0f);
-        r.defaultWidthLaneRight1 = jr.value("defaultWidthLaneRight1", 4.0f);
+        r.useLaneCenter          = jr.value("useLaneCenter",          false);
         r.defaultWidthLaneCenter = jr.value("defaultWidthLaneCenter", 0.0f);
+        r.useLaneRight1          = jr.value("useLaneRight1",          true);
+        r.defaultWidthLaneRight1 = jr.value("defaultWidthLaneRight1", 4.0f);
+        r.useLaneRight2          = jr.value("useLaneRight2",          false);
+        r.defaultWidthLaneRight2 = jr.value("defaultWidthLaneRight2", 3.5f);
         r.roadType               = jr.value("roadType",               0);
         r.closed                 = jr.value("closed",                 false);
         r.active                 = jr.value("active",                 1);
@@ -107,9 +114,16 @@ bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
             {"endIntersectionId",   r.endIntersectionId},
             {"defaultTargetSpeed",     r.defaultTargetSpeed},
             {"defaultFriction",        r.defaultFriction},
+            {"useLaneLeft2",           r.useLaneLeft2},
+            {"defaultWidthLaneLeft2",  r.defaultWidthLaneLeft2},
+            {"useLaneLeft1",           r.useLaneLeft1},
             {"defaultWidthLaneLeft1",  r.defaultWidthLaneLeft1},
-            {"defaultWidthLaneRight1", r.defaultWidthLaneRight1},
+            {"useLaneCenter",          r.useLaneCenter},
             {"defaultWidthLaneCenter", r.defaultWidthLaneCenter},
+            {"useLaneRight1",          r.useLaneRight1},
+            {"defaultWidthLaneRight1", r.defaultWidthLaneRight1},
+            {"useLaneRight2",          r.useLaneRight2},
+            {"defaultWidthLaneRight2", r.defaultWidthLaneRight2},
             {"roadType", r.roadType}, {"closed", r.closed}, {"active", r.active},
             {"verticalCurve", json::array()},
             {"bankAngle",     json::array()},

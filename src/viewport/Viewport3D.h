@@ -13,6 +13,7 @@
 #include "../model/RoadNetwork.h"
 #include "../scene/RoadRenderer.h"
 #include "../editor/EditorState.h"
+#include "../app/PropertiesPanel.h"
 
 class Viewport3D : public QOpenGLWidget, protected QOpenGLFunctions_4_1_Core {
     Q_OBJECT
@@ -26,7 +27,7 @@ public:
 
 public slots:
     void setToolMode(ToolMode m);
-    void applyRoadProperties(int roadIdx, float speed, float leftWidth, float rightWidth, float segmentLength, bool equalMidpoint);
+    void applyRoadProperties(int roadIdx, RoadProperties props);
     void setWireframe(bool on);
 
 signals:

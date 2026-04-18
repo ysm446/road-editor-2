@@ -39,11 +39,20 @@ struct Road {
 
     float defaultTargetSpeed     = 40.0f;
     float defaultFriction        = 0.15f;
+
+    bool  useLaneLeft2           = false;
+    float defaultWidthLaneLeft2  = 3.5f;
+    bool  useLaneLeft1           = true;
     float defaultWidthLaneLeft1  = 4.0f;
-    float defaultWidthLaneRight1 = 4.0f;
+    bool  useLaneCenter          = false;
     float defaultWidthLaneCenter = 0.0f;
-    float segmentLength          = 1.0f; // mesh tessellation interval along travel direction (m)
-    bool  equalMidpoint          = false; // if true, use true midpoint (t=0.5) instead of proportional split
+    bool  useLaneRight1          = true;
+    float defaultWidthLaneRight1 = 4.0f;
+    bool  useLaneRight2          = false;
+    float defaultWidthLaneRight2 = 3.5f;
+
+    float segmentLength          = 1.0f;
+    bool  equalMidpoint          = false;
     int   roadType = 0;
     bool  closed   = false;
     int   active   = 1;

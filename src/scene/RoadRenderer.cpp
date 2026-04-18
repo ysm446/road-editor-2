@@ -1,6 +1,7 @@
 #include "RoadRenderer.h"
 #include "../generator/RoadMeshGen.h"
 #include "../generator/ClothoidGen.h"
+#include "../generator/IntersectionMeshGen.h"
 #include <glm/gtc/matrix_transform.hpp>
 
 void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
@@ -9,6 +10,7 @@ void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
     m_selBatch.init(f);
     m_selRoad.init(f);
     m_surfaceMesh.init(f);
+    m_intersectionMesh.init(f);
     m_ready = true;
 }
 
@@ -48,12 +50,19 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     }
     m_nodes.upload(f);
 
-    // Road surface mesh (all roads merged)
+    // Road surface mesh (all roads merged, with intersection trimming)
     std::vector<Mesh::Vertex> verts;
     std::vector<uint32_t>     indices;
     for (const auto& road : net.roads)
-        RoadMeshGen::generate(road, verts, indices);
+        RoadMeshGen::generate(road, verts, indices, 6, &net);
     m_surfaceMesh.upload(f, verts, indices);
+
+    // Intersection fill mesh
+    std::vector<Mesh::Vertex> ixVerts;
+    std::vector<uint32_t>     ixIndices;
+    for (const auto& ix : net.intersections)
+        IntersectionMeshGen::generate(ix, net, ixVerts, ixIndices);
+    m_intersectionMesh.upload(f, ixVerts, ixIndices);
 
     m_hasData = true;
 }
@@ -106,6 +115,8 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
     roadShader.setVec3(f, "u_sunDir", glm::normalize(glm::vec3(0.4f, 1.0f, 0.5f)));
     roadShader.setVec3(f, "u_color",  glm::vec3(0.30f, 0.30f, 0.30f));
     m_surfaceMesh.draw(f);
+    roadShader.setVec3(f, "u_color",  glm::vec3(0.25f, 0.25f, 0.28f));
+    m_intersectionMesh.draw(f);
     roadShader.unbind();
 
     f->glDisable(GL_POLYGON_OFFSET_FILL);
@@ -121,6 +132,7 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
         roadShader.setVec3(f, "u_sunDir", glm::normalize(glm::vec3(0.4f, 1.0f, 0.5f)));
         roadShader.setVec3(f, "u_color",  glm::vec3(0.30f, 0.65f, 0.30f));
         m_surfaceMesh.draw(f);
+        m_intersectionMesh.draw(f);
         roadShader.unbind();
 
         f->glDisable(GL_POLYGON_OFFSET_LINE);
@@ -149,6 +161,7 @@ void RoadRenderer::destroy(QOpenGLFunctions_4_1_Core* f) {
     m_selBatch.destroy(f);
     m_selRoad.destroy(f);
     m_surfaceMesh.destroy(f);
+    m_intersectionMesh.destroy(f);
     m_ready   = false;
     m_hasData = false;
 }

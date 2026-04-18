@@ -2,10 +2,40 @@
 #include <QCheckBox>
 #include <QFormLayout>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QDoubleSpinBox>
 #include <QPushButton>
 #include <QGroupBox>
+
+static QDoubleSpinBox* makeWidthSpin(QWidget* parent) {
+    auto* s = new QDoubleSpinBox(parent);
+    s->setRange(0.1, 20.0);
+    s->setValue(3.5);
+    s->setSuffix(" m");
+    s->setDecimals(2);
+    s->setSingleStep(0.25);
+    return s;
+}
+
+// One lane row: [checkbox label] [width spinbox]
+static void addLaneRow(QFormLayout* form, const QString& label,
+                       QCheckBox*& checkOut, QDoubleSpinBox*& spinOut,
+                       bool defaultChecked, double defaultWidth, QWidget* parent)
+{
+    checkOut = new QCheckBox(label, parent);
+    checkOut->setChecked(defaultChecked);
+    spinOut  = makeWidthSpin(parent);
+    spinOut->setValue(defaultWidth);
+
+    auto* row = new QHBoxLayout;
+    row->setContentsMargins(0,0,0,0);
+    row->addWidget(checkOut);
+    row->addStretch();
+    row->addWidget(spinOut);
+
+    form->addRow(row);
+}
 
 PropertiesPanel::PropertiesPanel(QWidget* parent)
     : QWidget(parent)
@@ -18,21 +48,33 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     m_nameLabel->setStyleSheet("font-weight: bold; color: #aaa;");
     root->addWidget(m_nameLabel);
 
-    auto* grp = new QGroupBox("Road Parameters", this);
-    auto* form = new QFormLayout(grp);
-    form->setLabelAlignment(Qt::AlignRight);
-
+    // --- Speed ---
+    auto* speedGrp  = new QGroupBox("Speed", this);
+    auto* speedForm = new QFormLayout(speedGrp);
+    speedForm->setLabelAlignment(Qt::AlignRight);
     m_speedSpin = new QDoubleSpinBox(this);
-    m_speedSpin->setRange(0, 200); m_speedSpin->setSuffix(" km/h"); m_speedSpin->setDecimals(1);
-    form->addRow("Target Speed:", m_speedSpin);
+    m_speedSpin->setRange(0, 200);
+    m_speedSpin->setSuffix(" km/h");
+    m_speedSpin->setDecimals(1);
+    speedForm->addRow("Target Speed:", m_speedSpin);
+    root->addWidget(speedGrp);
 
-    m_leftWidthSpin = new QDoubleSpinBox(this);
-    m_leftWidthSpin->setRange(0, 50); m_leftWidthSpin->setSuffix(" m"); m_leftWidthSpin->setDecimals(2);
-    form->addRow("Left Width:", m_leftWidthSpin);
+    // --- Lanes ---
+    auto* laneGrp  = new QGroupBox("Lanes (left=negative, right=positive)", this);
+    auto* laneForm = new QFormLayout(laneGrp);
+    laneForm->setLabelAlignment(Qt::AlignRight);
 
-    m_rightWidthSpin = new QDoubleSpinBox(this);
-    m_rightWidthSpin->setRange(0, 50); m_rightWidthSpin->setSuffix(" m"); m_rightWidthSpin->setDecimals(2);
-    form->addRow("Right Width:", m_rightWidthSpin);
+    addLaneRow(laneForm, "Left 2  (lane -2)", m_useLaneLeft2Check,  m_widthLaneLeft2Spin,  false, 3.5, this);
+    addLaneRow(laneForm, "Left 1  (lane -1)", m_useLaneLeft1Check,  m_widthLaneLeft1Spin,  true,  4.0, this);
+    addLaneRow(laneForm, "Center  (lane  0)", m_useLaneCenterCheck, m_widthLaneCenterSpin, false, 0.0, this);
+    addLaneRow(laneForm, "Right 1 (lane +1)", m_useLaneRight1Check, m_widthLaneRight1Spin, true,  4.0, this);
+    addLaneRow(laneForm, "Right 2 (lane +2)", m_useLaneRight2Check, m_widthLaneRight2Spin, false, 3.5, this);
+    root->addWidget(laneGrp);
+
+    // --- Mesh / curve settings ---
+    auto* meshGrp  = new QGroupBox("Mesh", this);
+    auto* meshForm = new QFormLayout(meshGrp);
+    meshForm->setLabelAlignment(Qt::AlignRight);
 
     m_segmentLengthSpin = new QDoubleSpinBox(this);
     m_segmentLengthSpin->setRange(0.1, 50.0);
@@ -41,15 +83,14 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     m_segmentLengthSpin->setDecimals(2);
     m_segmentLengthSpin->setSingleStep(0.5);
     m_segmentLengthSpin->setToolTip("Mesh tessellation interval along the road direction");
-    form->addRow("Segment Length:", m_segmentLengthSpin);
+    meshForm->addRow("Segment Length:", m_segmentLengthSpin);
 
     m_equalMidpointCheck = new QCheckBox("Equal midpoint (t=0.5)", this);
     m_equalMidpointCheck->setToolTip(
-        "Checked: bend pivot is at the exact midpoint of each edge\n"
-        "Unchecked: pivot is weighted by adjacent edge lengths (proportional)");
-    form->addRow("Midpoint split:", m_equalMidpointCheck);
-
-    root->addWidget(grp);
+        "Checked: bend pivot at exact edge midpoint\n"
+        "Unchecked: pivot weighted by adjacent edge lengths");
+    meshForm->addRow("Midpoint split:", m_equalMidpointCheck);
+    root->addWidget(meshGrp);
 
     auto* applyBtn = new QPushButton("Apply", this);
     connect(applyBtn, &QPushButton::clicked, this, &PropertiesPanel::applyChanges);
@@ -86,39 +127,65 @@ void PropertiesPanel::populate(const Road& road) {
         : QString::fromStdString(road.name);
     m_nameLabel->setText(name);
 
-    m_speedSpin->blockSignals(true);
-    m_leftWidthSpin->blockSignals(true);
-    m_rightWidthSpin->blockSignals(true);
-    m_segmentLengthSpin->blockSignals(true);
-    m_equalMidpointCheck->blockSignals(true);
+    auto blockAll = [&](bool b) {
+        m_speedSpin->blockSignals(b);
+        m_useLaneLeft2Check->blockSignals(b);  m_widthLaneLeft2Spin->blockSignals(b);
+        m_useLaneLeft1Check->blockSignals(b);  m_widthLaneLeft1Spin->blockSignals(b);
+        m_useLaneCenterCheck->blockSignals(b); m_widthLaneCenterSpin->blockSignals(b);
+        m_useLaneRight1Check->blockSignals(b); m_widthLaneRight1Spin->blockSignals(b);
+        m_useLaneRight2Check->blockSignals(b); m_widthLaneRight2Spin->blockSignals(b);
+        m_segmentLengthSpin->blockSignals(b);
+        m_equalMidpointCheck->blockSignals(b);
+    };
+    blockAll(true);
 
     m_speedSpin->setValue(road.defaultTargetSpeed);
-    m_leftWidthSpin->setValue(road.defaultWidthLaneLeft1);
-    m_rightWidthSpin->setValue(road.defaultWidthLaneRight1);
-    m_segmentLengthSpin->setValue(static_cast<double>(road.segmentLength));
+
+    m_useLaneLeft2Check->setChecked(road.useLaneLeft2);
+    m_widthLaneLeft2Spin->setValue(road.defaultWidthLaneLeft2);
+    m_useLaneLeft1Check->setChecked(road.useLaneLeft1);
+    m_widthLaneLeft1Spin->setValue(road.defaultWidthLaneLeft1);
+    m_useLaneCenterCheck->setChecked(road.useLaneCenter);
+    m_widthLaneCenterSpin->setValue(road.defaultWidthLaneCenter);
+    m_useLaneRight1Check->setChecked(road.useLaneRight1);
+    m_widthLaneRight1Spin->setValue(road.defaultWidthLaneRight1);
+    m_useLaneRight2Check->setChecked(road.useLaneRight2);
+    m_widthLaneRight2Spin->setValue(road.defaultWidthLaneRight2);
+
+    m_segmentLengthSpin->setValue(road.segmentLength);
     m_equalMidpointCheck->setChecked(road.equalMidpoint);
 
-    m_speedSpin->blockSignals(false);
-    m_leftWidthSpin->blockSignals(false);
-    m_rightWidthSpin->blockSignals(false);
-    m_segmentLengthSpin->blockSignals(false);
-    m_equalMidpointCheck->blockSignals(false);
+    blockAll(false);
 }
 
 void PropertiesPanel::setEnabled(bool on) {
     m_speedSpin->setEnabled(on);
-    m_leftWidthSpin->setEnabled(on);
-    m_rightWidthSpin->setEnabled(on);
+    m_useLaneLeft2Check->setEnabled(on);  m_widthLaneLeft2Spin->setEnabled(on);
+    m_useLaneLeft1Check->setEnabled(on);  m_widthLaneLeft1Spin->setEnabled(on);
+    m_useLaneCenterCheck->setEnabled(on); m_widthLaneCenterSpin->setEnabled(on);
+    m_useLaneRight1Check->setEnabled(on); m_widthLaneRight1Spin->setEnabled(on);
+    m_useLaneRight2Check->setEnabled(on); m_widthLaneRight2Spin->setEnabled(on);
     m_segmentLengthSpin->setEnabled(on);
     m_equalMidpointCheck->setEnabled(on);
 }
 
 void PropertiesPanel::applyChanges() {
     if (!m_net || m_roadIdx < 0 || m_roadIdx >= (int)m_net->roads.size()) return;
-    emit roadModified(m_roadIdx,
-                      static_cast<float>(m_speedSpin->value()),
-                      static_cast<float>(m_leftWidthSpin->value()),
-                      static_cast<float>(m_rightWidthSpin->value()),
-                      static_cast<float>(m_segmentLengthSpin->value()),
-                      m_equalMidpointCheck->isChecked());
+
+    RoadProperties p;
+    p.speed          = static_cast<float>(m_speedSpin->value());
+    p.useLaneLeft2   = m_useLaneLeft2Check->isChecked();
+    p.widthLaneLeft2 = static_cast<float>(m_widthLaneLeft2Spin->value());
+    p.useLaneLeft1   = m_useLaneLeft1Check->isChecked();
+    p.widthLaneLeft1 = static_cast<float>(m_widthLaneLeft1Spin->value());
+    p.useLaneCenter  = m_useLaneCenterCheck->isChecked();
+    p.widthLaneCenter = static_cast<float>(m_widthLaneCenterSpin->value());
+    p.useLaneRight1  = m_useLaneRight1Check->isChecked();
+    p.widthLaneRight1 = static_cast<float>(m_widthLaneRight1Spin->value());
+    p.useLaneRight2  = m_useLaneRight2Check->isChecked();
+    p.widthLaneRight2 = static_cast<float>(m_widthLaneRight2Spin->value());
+    p.segmentLength  = static_cast<float>(m_segmentLengthSpin->value());
+    p.equalMidpoint  = m_equalMidpointCheck->isChecked();
+
+    emit roadModified(m_roadIdx, p);
 }

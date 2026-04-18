@@ -6,16 +6,49 @@
 void RoadMeshGen::generate(const Road&                 road,
                             std::vector<Mesh::Vertex>& outVerts,
                             std::vector<uint32_t>&     outIndices,
-                            int                        /*subdiv*/)
+                            int                        /*subdiv*/,
+                            const RoadNetwork*         net)
 {
     const auto& pts = road.points;
     if (pts.size() < 2 || road.active == 0) return;
 
     // --- 1. Build smooth centerline using clothoid curves ---
-    // Use the road's segmentLength as the tessellation interval.
     const float sampleInterval = std::max(road.segmentLength, 0.01f);
-    const std::vector<glm::vec3> worldSamples =
+    std::vector<glm::vec3> worldSamples =
         ClothoidGen::buildCenterline(pts, sampleInterval, road.equalMidpoint);
+
+    if (worldSamples.size() < 2) return;
+
+    // --- 1b. Trim centerline endpoints at intersections ---
+    if (net) {
+        // Helper: trim front of worldSamples within entryDist of its first point
+        auto trimFront = [&](float dist) {
+            glm::vec3 origin = worldSamples.front();
+            size_t cut = 0;
+            for (size_t i = 1; i < worldSamples.size(); ++i) {
+                if (glm::distance(worldSamples[i], origin) >= dist) { cut = i; break; }
+            }
+            if (cut > 0)
+                worldSamples.erase(worldSamples.begin(), worldSamples.begin() + cut);
+        };
+        auto trimBack = [&](float dist) {
+            glm::vec3 origin = worldSamples.back();
+            size_t cut = worldSamples.size() - 1;
+            for (int i = (int)worldSamples.size() - 2; i >= 0; --i) {
+                if (glm::distance(worldSamples[i], origin) >= dist) { cut = (size_t)i; break; }
+            }
+            worldSamples.erase(worldSamples.begin() + cut + 1, worldSamples.end());
+        };
+
+        if (!road.startIntersectionId.empty()) {
+            const Intersection* ix = net->findIntersection(road.startIntersectionId);
+            if (ix && ix->entryDist > 0.0f) trimFront(ix->entryDist);
+        }
+        if (!road.endIntersectionId.empty()) {
+            const Intersection* ix = net->findIntersection(road.endIntersectionId);
+            if (ix && ix->entryDist > 0.0f) trimBack(ix->entryDist);
+        }
+    }
 
     if (worldSamples.size() < 2) return;
 
@@ -38,9 +71,15 @@ void RoadMeshGen::generate(const Road&                 road,
         tangents[i] = (len > 1e-6f) ? t / len : glm::vec3(0, 0, 1);
     }
 
-    // --- 3. Profile widths ---
-    const float leftW  = road.defaultWidthLaneLeft1;
-    const float rightW = road.defaultWidthLaneRight1;
+    // --- 3. Profile widths from active lanes ---
+    float leftW = 0.0f, rightW = 0.0f;
+    if (road.useLaneLeft2)  leftW  += road.defaultWidthLaneLeft2;
+    if (road.useLaneLeft1)  leftW  += road.defaultWidthLaneLeft1;
+    if (road.useLaneCenter) { leftW += road.defaultWidthLaneCenter * 0.5f;
+                              rightW += road.defaultWidthLaneCenter * 0.5f; }
+    if (road.useLaneRight1) rightW += road.defaultWidthLaneRight1;
+    if (road.useLaneRight2) rightW += road.defaultWidthLaneRight2;
+    if (leftW < 1e-4f && rightW < 1e-4f) leftW = rightW = 0.1f;
 
     // --- 4. Vertices: two per sample (left edge, right edge) ---
     const uint32_t base = static_cast<uint32_t>(outVerts.size());

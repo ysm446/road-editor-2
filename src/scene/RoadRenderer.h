@@ -33,7 +33,8 @@ private:
     LineBatch m_nodes;       // intersection markers
     LineBatch m_selBatch;    // selected control point highlight
     LineBatch m_selRoad;     // selected road centerline highlight
-    Mesh      m_surfaceMesh; // road surface quads
+    Mesh      m_surfaceMesh;       // road surface quads
+    Mesh      m_intersectionMesh; // intersection fill
 
     bool m_ready   = false;
     bool m_hasData = false;

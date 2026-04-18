@@ -214,6 +214,126 @@ void appendClothoidBend(std::vector<v3>& out, v3 p0, v3 p1, v3 p2, float interva
     appendUnique(out, p2);
 }
 
+// ---------------------------------------------------------------------------
+// Detailed versions — same geometry, each point tagged with SegKind
+// ---------------------------------------------------------------------------
+
+void appendUniqueD(std::vector<CurvePt>& out, v3 p, SegKind k) {
+    if (!out.empty()) {
+        v3 d = out.back().pos - p;
+        if (glm::dot(d, d) < 1e-8f) return;
+    }
+    out.push_back({p, k});
+}
+
+void appendBezierDetailed(std::vector<CurvePt>& out, v3 p0, v3 p1, v3 p2, float interval) {
+    float len = glm::length(p1 - p0) + glm::length(p2 - p1);
+    int n = std::max(static_cast<int>(std::ceil(len / interval)), 2);
+    for (int i = 0; i <= n; ++i) {
+        float t = float(i) / float(n);
+        appendUniqueD(out, (1-t)*(1-t)*p0 + 2*(1-t)*t*p1 + t*t*p2, SegKind::Straight);
+    }
+}
+
+void appendClothoidBendDetailed(std::vector<CurvePt>& out, v3 p0, v3 p1, v3 p2, float interval) {
+    // --- degenerate checks (same as non-detailed version) ---
+    {
+        float l0 = glm::length(p1 - p0);
+        float l1 = glm::length(p2 - p1);
+        if (l0 < 1e-4f || l1 < 1e-4f) { appendBezierDetailed(out, p0, p1, p2, interval); return; }
+        v3 d0 = (p1 - p0) / l0, d1 = (p2 - p1) / l1;
+        float cosA = std::clamp(glm::dot(d0, d1), -1.0f, 1.0f);
+        if (glm::length(glm::cross(d0, d1)) < 0.001f && std::abs(1.0f - std::abs(cosA)) < 0.001f) {
+            appendBezierDetailed(out, p0, p1, p2, interval); return;
+        }
+    }
+
+    Frame frame;
+    if (!buildFrame(p0, p1, p2, frame)) { appendBezierDetailed(out, p0, p1, p2, interval); return; }
+
+    v2 loc1 = { worldToLocal(frame, p1).x, worldToLocal(frame, p1).y };
+    v2 loc2 = { worldToLocal(frame, p2).x, worldToLocal(frame, p2).y };
+    float segLen0 = glm::length(loc1);
+    float segLen1 = glm::distance(loc2, loc1);
+    if (segLen0 < 1e-4f || segLen1 < 1e-4f) { appendBezierDetailed(out, p0, p1, p2, interval); return; }
+
+    v2 v0 = loc1 / segLen0;
+    v2 v1 = glm::normalize(loc2 - loc1);
+    float I = std::acos(std::clamp(glm::dot(v0, v1), -1.0f, 1.0f));
+    if (I < 0.001f) { appendBezierDetailed(out, p0, p1, p2, interval); return; }
+
+    float tau1 = I * kClothoidAngleRatio * 0.5f;
+    float tau2 = tau1;
+    float theta = I - (tau1 + tau2);
+    float A1 = std::sqrt(tau1 * 2.0f), A2 = std::sqrt(tau2 * 2.0f);
+    float L1 = tau1 * 2.0f, L2 = tau2 * 2.0f;
+
+    v2 ce0 = { clothoidX(tau1, A1), clothoidY(tau1, A1) };
+    v2 ce1 = { clothoidX(tau2, A2), clothoidY(tau2, A2) };
+    v2 vecTau1 = { std::cos(tau1), std::sin(tau1) };
+    v2 center  = ce0 + v2(-vecTau1.y, vecTau1.x);
+    v2 startDir = ce0 - center;
+    float startRot = std::atan2(startDir.y, startDir.x);
+    float endRot   = startRot + theta;
+    v2 arcEnd = v2(std::cos(endRot), std::sin(endRot)) + center;
+    v2 mirroredStart = arcEnd + rotate2({ ce1.x, -ce1.y }, I);
+
+    v2 guideP1 = lineIntersect2D({0,0}, {1,0}, mirroredStart, mirroredStart + (loc1 - loc2));
+    float localLen0 = std::max(glm::distance(guideP1, v2(0.0f)), 1e-4f);
+    float localLen1 = std::max(glm::distance(guideP1, mirroredStart), 1e-4f);
+    float localRatio = localLen0 / localLen1;
+    float ratio      = segLen0 / segLen1;
+
+    float scale = 1.0f, offset = 0.0f;
+    if (ratio > localRatio) {
+        scale  = segLen1 / localLen1;
+        offset = segLen0 - localLen0 * scale;
+    } else {
+        scale = segLen0 / localLen0;
+    }
+
+    float localInterval = std::max(interval / std::max(scale, 1e-4f), 1e-4f);
+
+    // fit a local 2D point into world space, tag with kind
+    auto fitAndAppendD = [&](v2 p, SegKind k) {
+        v2 fitted = p * scale;
+        if (ratio > localRatio) fitted.x += offset;
+        appendUniqueD(out, localToWorld(frame, { fitted.x, fitted.y, 0.0f }), k);
+    };
+
+    // p0 → clothoid1 start: straight if offset > 0, otherwise merges with clothoid start
+    appendUniqueD(out, p0, SegKind::Straight);
+
+    // first clothoid
+    int n0 = std::max(static_cast<int>(std::ceil(L1 / localInterval)), 2);
+    for (int i = 0; i < n0; ++i) {
+        float t = tau1 * float(i) / float(std::max(n0 - 1, 1));
+        fitAndAppendD({ clothoidX(t, A1), clothoidY(t, A1) }, SegKind::Clothoid);
+    }
+
+    // arc
+    int na = std::max(static_cast<int>(std::ceil(theta / localInterval)), 2);
+    for (int i = 1; i <= na; ++i) {
+        float angle = startRot + theta * float(i) / float(na);
+        fitAndAppendD(v2(std::cos(angle), std::sin(angle)) + center, SegKind::Arc);
+    }
+
+    // second clothoid (reversed) — collect then reverse
+    int n1 = std::max(static_cast<int>(std::ceil(L2 / localInterval)), 2);
+    std::vector<v2> cl2;
+    cl2.reserve(n1);
+    for (int i = 0; i < n1; ++i) {
+        float t = tau2 * float(i) / float(std::max(n1 - 1, 1));
+        v2 s = { clothoidX(t, A2), clothoidY(t, A2) };
+        cl2.push_back(arcEnd + rotate2({ ce1.x - s.x, s.y - ce1.y }, I));
+    }
+    std::reverse(cl2.begin(), cl2.end());
+    for (const v2& p : cl2) fitAndAppendD(p, SegKind::Clothoid);
+
+    // clothoid2 end → p2: straight
+    appendUniqueD(out, p2, SegKind::Straight);
+}
+
 } // anonymous namespace
 
 // ---------------------------------------------------------------------------
@@ -308,6 +428,42 @@ std::vector<glm::vec3> buildAndResample(
     float fineInterval = std::max(interval / 10.0f, 0.01f);
     auto centerline = buildCenterline(pts, fineInterval);
     return resamplePolyline(centerline, interval);
+}
+
+std::vector<CurvePt> buildCenterlineDetailed(
+    const std::vector<ControlPoint>& pts,
+    float sampleInterval)
+{
+    using v3 = glm::vec3;
+    std::vector<CurvePt> out;
+    int n = static_cast<int>(pts.size());
+    if (n < 2) return out;
+    if (n == 2) {
+        out.push_back({pts[0].pos, SegKind::Straight});
+        out.push_back({pts[1].pos, SegKind::Straight});
+        return out;
+    }
+
+    std::vector<v3> mid(n - 1);
+    for (int e = 0; e < n - 1; ++e) {
+        float prevLen = (e > 0)
+            ? glm::distance(pts[e - 1].pos, pts[e].pos)
+            : 0.0f;
+        float thisLen = glm::distance(pts[e].pos, pts[e + 1].pos);
+        float sum = prevLen + thisLen;
+        float t = (sum > 1e-5f) ? prevLen / sum : 0.5f;
+        mid[e] = glm::mix(pts[e].pos, pts[e + 1].pos, t);
+    }
+
+    appendUniqueD(out, pts[0].pos, SegKind::Straight);
+
+    for (int i = 1; i < n - 1; ++i) {
+        appendClothoidBendDetailed(out, mid[i - 1], pts[i].pos, mid[i], sampleInterval);
+    }
+
+    appendUniqueD(out, pts[n - 1].pos, SegKind::Straight);
+
+    return out;
 }
 
 } // namespace ClothoidGen

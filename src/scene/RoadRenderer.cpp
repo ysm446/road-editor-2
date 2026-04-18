@@ -1,5 +1,6 @@
 #include "RoadRenderer.h"
 #include "../generator/RoadMeshGen.h"
+#include "../generator/ClothoidGen.h"
 #include <glm/gtc/matrix_transform.hpp>
 
 void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
@@ -14,17 +15,26 @@ void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
 void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net) {
     if (!m_ready) return;
 
-    const glm::vec3 kRoad  = {0.95f, 0.85f, 0.35f};
-    const glm::vec3 kNode  = {0.35f, 0.90f, 0.45f};
-    const float     kCross = 5.0f;
+    const glm::vec3 kStraight  = {1.0f, 1.0f, 1.0f};
+    const glm::vec3 kClothoid  = {1.0f, 0.55f, 0.15f};
+    const glm::vec3 kArc       = {0.2f, 0.9f, 0.2f};
+    const glm::vec3 kNode      = {0.35f, 0.90f, 0.45f};
+    const float     kCross     = 5.0f;
 
-    // Centerlines
+    auto kindColor = [&](SegKind k) -> const glm::vec3& {
+        if (k == SegKind::Arc)      return kArc;
+        if (k == SegKind::Clothoid) return kClothoid;
+        return kStraight;
+    };
+
+    // Colored centerlines (white=straight, orange=clothoid, green=arc)
     m_roads.begin();
     for (const auto& road : net.roads) {
         if (road.points.size() < 2) continue;
-        for (size_t i = 0; i + 1 < road.points.size(); ++i)
-            m_roads.addLine(toGL(road.points[i    ].pos),
-                            toGL(road.points[i + 1].pos), kRoad);
+        auto curve = ClothoidGen::buildCenterlineDetailed(road.points, road.segmentLength);
+        for (size_t i = 0; i + 1 < curve.size(); ++i)
+            m_roads.addLine(toGL(curve[i].pos), toGL(curve[i + 1].pos),
+                            kindColor(curve[i].kind));
     }
     m_roads.upload(f);
 

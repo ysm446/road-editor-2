@@ -46,7 +46,7 @@ float TransformGizmo::axisTParam(const glm::vec3& rayOrigin,
     if (std::abs(denom) < 1e-6f) return 0.0f; // parallel
     float d = glm::dot(rayDir, w);
     float e = glm::dot(axisDir, w);
-    return (e - b * d) / denom;
+    return (b * d - e) / denom;
 }
 
 // ---------------------------------------------------------------------------

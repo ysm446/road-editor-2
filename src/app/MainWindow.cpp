@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "BuildConfig.h"
 #include "PropertiesPanel.h"
 #include "OutlinerPanel.h"
 #include "../viewport/Viewport3D.h"
@@ -51,7 +52,7 @@ MainWindow::MainWindow(QWidget* parent)
             });
 
     // Auto-load sample data
-    QString sample = QString(SOURCE_DIR) + "/docs/road_data_format.json";
+    QString sample = QStringLiteral(ROAD_EDITOR_SOURCE_DIR) + "/docs/road_data_format.json";
     if (QFile::exists(sample))
         QTimer::singleShot(0, this, [this, sample]{
             m_currentPath = sample;

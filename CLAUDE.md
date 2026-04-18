@@ -59,7 +59,7 @@ shaders/
 |---|---|
 | Alt + LMB drag | Orbit |
 | Alt + MMB drag | Pan |
-| Scroll wheel | Zoom |
+| Alt + Scroll wheel | Zoom |
 | LMB click | Select control point (orange cross) |
 | LMB drag (on selected point) | Move control point on horizontal plane |
 | Ctrl+Z | Undo |

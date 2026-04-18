@@ -9,6 +9,12 @@ set(CMAKE_AUTOUIC ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
+configure_file(
+    "${CMAKE_SOURCE_DIR}/src/config/BuildConfig.h.in"
+    "${CMAKE_BINARY_DIR}/generated/BuildConfig.h"
+    @ONLY
+)
+
 find_package(Qt6 REQUIRED COMPONENTS Widgets OpenGL OpenGLWidgets)
 find_package(OpenGL REQUIRED)
 
@@ -34,13 +40,13 @@ file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.h")
 
 add_executable(RoadEditor2 ${SOURCES})
 
+target_include_directories(RoadEditor2 PRIVATE
+    "${CMAKE_BINARY_DIR}/generated"
+)
+
 if(MSVC)
     target_compile_options(RoadEditor2 PRIVATE /W4 /utf-8)
 endif()
-
-target_compile_definitions(RoadEditor2 PRIVATE
-    SOURCE_DIR="${CMAKE_SOURCE_DIR}"
-)
 
 target_link_libraries(RoadEditor2 PRIVATE
     Qt6::Widgets

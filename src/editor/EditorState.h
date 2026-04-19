@@ -6,10 +6,12 @@
 enum class ToolMode { Select, Edit };
 
 struct Selection {
-    int roadIdx  = -1;
-    int pointIdx = -1;
-    bool valid() const { return roadIdx >= 0 && pointIdx >= 0; }
-    void clear()       { roadIdx = pointIdx = -1; }
+    int roadIdx         = -1;
+    int pointIdx        = -1;
+    int intersectionIdx = -1;
+    bool valid() const           { return roadIdx >= 0 && pointIdx >= 0; }
+    bool hasIntersection() const { return intersectionIdx >= 0; }
+    void clear()                 { roadIdx = pointIdx = intersectionIdx = -1; }
 };
 
 class EditorState {

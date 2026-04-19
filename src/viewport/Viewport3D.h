@@ -53,7 +53,9 @@ private:
     bool pickControlPoint(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
                           int& outRoadIdx, int& outPointIdx);
     int  pickRoad(const QPoint& screenPos) const;
+    int  pickIntersection(const QPoint& screenPos) const;
     glm::vec3 rayHitY(const glm::vec3& origin, const glm::vec3& dir, float y) const;
+    void setupIxDragEndpoints(int ixIdx);
 
     Camera         m_camera;
     Grid           m_grid;
@@ -85,4 +87,8 @@ private:
     float                m_gizmoDragT0          = 0.0f;
     glm::vec3            m_gizmoDragOrigGlPos   = {0.0f, 0.0f, 0.0f};
     glm::vec3            m_gizmoDragScreenHit0  = {0.0f, 0.0f, 0.0f};
+
+    // Intersection drag state: per-endpoint offset from intersection center (world space)
+    struct IxDragEndpoint { int roadIdx, ptIdx; glm::vec3 origOffset; };
+    std::vector<IxDragEndpoint> m_ixDragEndpoints;
 };

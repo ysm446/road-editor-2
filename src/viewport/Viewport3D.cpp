@@ -80,18 +80,27 @@ void Viewport3D::paintGL() {
     m_roadRenderer.draw(this, m_lineShader, m_roadShader, m_pointShader, vp);
 
     // Transform gizmo — drawn over road geometry, depth-test disabled
-    if (m_glReady && m_editor.mode == ToolMode::Edit &&
-        m_editor.sel.roadIdx  >= 0 &&
-        m_editor.sel.pointIdx >= 0 &&
-        m_editor.sel.roadIdx  < (int)m_network.roads.size())
-    {
-        const auto& pt = m_network.roads[m_editor.sel.roadIdx]
-                                   .points[m_editor.sel.pointIdx];
-        glm::vec3 glPos = {-pt.pos.x, pt.pos.y, pt.pos.z};
-        m_transformGizmo.rebuild(this, glPos, m_camera.position(), m_gizmoHover);
-        glDisable(GL_DEPTH_TEST);
-        m_transformGizmo.draw(this, m_lineShader, vp);
-        glEnable(GL_DEPTH_TEST);
+    if (m_glReady && m_editor.mode == ToolMode::Edit) {
+        glm::vec3 glPos;
+        bool showGizmo = false;
+        if (m_editor.sel.roadIdx >= 0 && m_editor.sel.pointIdx >= 0 &&
+            m_editor.sel.roadIdx < (int)m_network.roads.size()) {
+            const auto& pt = m_network.roads[m_editor.sel.roadIdx]
+                                       .points[m_editor.sel.pointIdx];
+            glPos = {-pt.pos.x, pt.pos.y, pt.pos.z};
+            showGizmo = true;
+        } else if (m_editor.sel.intersectionIdx >= 0 &&
+                   m_editor.sel.intersectionIdx < (int)m_network.intersections.size()) {
+            const auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
+            glPos = {-ix.pos.x, ix.pos.y, ix.pos.z};
+            showGizmo = true;
+        }
+        if (showGizmo) {
+            m_transformGizmo.rebuild(this, glPos, m_camera.position(), m_gizmoHover);
+            glDisable(GL_DEPTH_TEST);
+            m_transformGizmo.draw(this, m_lineShader, vp);
+            glEnable(GL_DEPTH_TEST);
+        }
     }
 
     m_axisGizmo.draw(this, m_lineShader, view, width(), height());
@@ -99,6 +108,8 @@ void Viewport3D::paintGL() {
 
 void Viewport3D::setToolMode(ToolMode m) {
     m_editor.mode = m;
+    m_roadRenderer.setShowPoints(m == ToolMode::Edit);
+    update();
 }
 
 void Viewport3D::setWireframe(bool on) {
@@ -214,6 +225,47 @@ int Viewport3D::pickRoad(const QPoint& screenPos) const {
     return bestRoad;
 }
 
+int Viewport3D::pickIntersection(const QPoint& screenPos) const {
+    const float kPickRadiusSq = 20.0f * 20.0f;
+    float bestDist = std::numeric_limits<float>::max();
+    int best = -1;
+
+    glm::mat4 vp = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+    glm::vec2 mp = { float(screenPos.x()), float(screenPos.y()) };
+
+    for (int i = 0; i < (int)m_network.intersections.size(); ++i) {
+        const auto& ix = m_network.intersections[i];
+        glm::vec4 clip = vp * glm::vec4(-ix.pos.x, ix.pos.y, ix.pos.z, 1.0f);
+        if (clip.w <= 0.0f) continue;
+        glm::vec3 ndc = glm::vec3(clip) / clip.w;
+        float sx = (ndc.x + 1.0f) * 0.5f * width();
+        float sy = (1.0f - ndc.y) * 0.5f * height();
+        float dx = sx - mp.x, dy = sy - mp.y;
+        float distSq = dx*dx + dy*dy;
+        if (distSq < kPickRadiusSq && distSq < bestDist) {
+            bestDist = distSq;
+            best = i;
+        }
+    }
+    return best;
+}
+
+void Viewport3D::setupIxDragEndpoints(int ixIdx) {
+    m_ixDragEndpoints.clear();
+    if (ixIdx < 0 || ixIdx >= (int)m_network.intersections.size()) return;
+    const auto& ix = m_network.intersections[ixIdx];
+    for (int ri = 0; ri < (int)m_network.roads.size(); ++ri) {
+        const auto& road = m_network.roads[ri];
+        if (road.active == 0 || road.points.empty()) continue;
+        if (road.startIntersectionId == ix.id)
+            m_ixDragEndpoints.push_back({ri, 0,
+                road.points.front().pos - ix.pos});
+        if (road.endIntersectionId == ix.id)
+            m_ixDragEndpoints.push_back({ri, (int)road.points.size() - 1,
+                road.points.back().pos - ix.pos});
+    }
+}
+
 bool Viewport3D::pickControlPoint(
     const glm::vec3& rayOrigin, const glm::vec3& rayDir, int& outRoadIdx, int& outPointIdx) {
     Q_UNUSED(rayOrigin);
@@ -300,40 +352,72 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
             }
             m_dragging = false;
         } else {
-            // Edit mode: check gizmo axis first (only if a point is already selected)
-            if (m_editor.sel.roadIdx  >= 0 &&
-                m_editor.sel.pointIdx >= 0 &&
-                m_editor.sel.roadIdx  < (int)m_network.roads.size())
+            // Edit mode: resolve gizmo position from whatever is currently selected
             {
-                const auto& pt = m_network.roads[m_editor.sel.roadIdx]
-                                           .points[m_editor.sel.pointIdx];
-                glm::vec3 glPos = {-pt.pos.x, pt.pos.y, pt.pos.z};
-                glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
-                auto axis = m_transformGizmo.hitTest(
-                    e->pos(), glPos, m_camera.position(), vpMat, width(), height());
+                glm::vec3 glPos;
+                bool hasGizmo = false;
+                if (m_editor.sel.roadIdx >= 0 && m_editor.sel.pointIdx >= 0 &&
+                    m_editor.sel.roadIdx < (int)m_network.roads.size()) {
+                    const auto& pt = m_network.roads[m_editor.sel.roadIdx]
+                                               .points[m_editor.sel.pointIdx];
+                    glPos = {-pt.pos.x, pt.pos.y, pt.pos.z};
+                    hasGizmo = true;
+                } else if (m_editor.sel.intersectionIdx >= 0 &&
+                           m_editor.sel.intersectionIdx < (int)m_network.intersections.size()) {
+                    const auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
+                    glPos = {-ix.pos.x, ix.pos.y, ix.pos.z};
+                    hasGizmo = true;
+                }
 
-                if (axis != TransformGizmo::Axis::None) {
-                    m_gizmoDragAxis      = axis;
-                    m_gizmoDragOrigGlPos = glPos;
+                if (hasGizmo) {
+                    glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+                    auto axis = m_transformGizmo.hitTest(
+                        e->pos(), glPos, m_camera.position(), vpMat, width(), height());
 
-                    if (axis == TransformGizmo::Axis::Screen) {
-                        // Camera-parallel plane: record hit point on the plane at drag start
-                        glm::vec3 planeNorm = glm::normalize(m_camera.position() - glPos);
-                        float denom = glm::dot(rayDir, planeNorm);
-                        if (std::abs(denom) > 1e-6f) {
-                            float t = glm::dot(glPos - rayOri, planeNorm) / denom;
-                            m_gizmoDragScreenHit0 = rayOri + t * rayDir;
+                    if (axis != TransformGizmo::Axis::None) {
+                        m_gizmoDragAxis      = axis;
+                        m_gizmoDragOrigGlPos = glPos;
+
+                        if (axis == TransformGizmo::Axis::Screen) {
+                            glm::vec3 planeNorm = glm::normalize(m_camera.position() - glPos);
+                            float denom = glm::dot(rayDir, planeNorm);
+                            if (std::abs(denom) > 1e-6f) {
+                                float t = glm::dot(glPos - rayOri, planeNorm) / denom;
+                                m_gizmoDragScreenHit0 = rayOri + t * rayDir;
+                            } else {
+                                m_gizmoDragScreenHit0 = glPos;
+                            }
                         } else {
-                            m_gizmoDragScreenHit0 = glPos;
+                            m_gizmoDragT0 = TransformGizmo::axisTParam(
+                                rayOri, rayDir, glPos, TransformGizmo::axisDir(axis));
                         }
-                    } else {
-                        float t = TransformGizmo::axisTParam(
-                            rayOri, rayDir, glPos,
-                            TransformGizmo::axisDir(axis));
-                        m_gizmoDragT0 = t;
-                    }
 
-                    m_dragging = true;
+                        if (m_editor.sel.hasIntersection())
+                            setupIxDragEndpoints(m_editor.sel.intersectionIdx);
+
+                        m_dragging = true;
+                        m_editor.pushUndo(m_network);
+                        return;
+                    }
+                }
+            }
+
+            // Try picking an intersection center
+            {
+                int ixIdx = pickIntersection(e->pos());
+                if (ixIdx >= 0) {
+                    m_editor.sel.clear();
+                    m_editor.sel.intersectionIdx = ixIdx;
+                    makeCurrent();
+                    m_roadRenderer.updateSelection(this, m_network, -1, -1);
+                    doneCurrent();
+                    emit selectionChanged(-1);
+                    const auto& ix = m_network.intersections[ixIdx];
+                    glm::vec3 glPos = {-ix.pos.x, ix.pos.y, ix.pos.z};
+                    m_gizmoDragAxis = TransformGizmo::Axis::None;
+                    m_dragging      = true;
+                    m_dragPlaneY    = glPos;
+                    setupIxDragEndpoints(ixIdx);
                     m_editor.pushUndo(m_network);
                     return;
                 }
@@ -396,56 +480,80 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
         m_camera.pan(static_cast<float>(delta.x()), static_cast<float>(delta.y()));
     }
 
-    if (m_dragging && m_editor.sel.valid() && !(e->modifiers() & Qt::AltModifier)) {
+    if (m_dragging && !(e->modifiers() & Qt::AltModifier)) {
         glm::vec3 rayDir = screenToRay(e->pos());
         glm::vec3 rayOri = m_camera.position();
-        int ri = m_editor.sel.roadIdx;
-        int pi = m_editor.sel.pointIdx;
 
-        if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
-            // Camera-parallel plane drag
-            glm::vec3 planeNorm = glm::normalize(m_camera.position() - m_gizmoDragOrigGlPos);
-            float denom = glm::dot(rayDir, planeNorm);
-            if (std::abs(denom) > 1e-6f) {
-                float t = glm::dot(m_gizmoDragOrigGlPos - rayOri, planeNorm) / denom;
-                glm::vec3 hit = rayOri + t * rayDir;
-                glm::vec3 newGlPos = m_gizmoDragOrigGlPos + (hit - m_gizmoDragScreenHit0);
-                m_network.roads[ri].points[pi].pos = {-newGlPos.x, newGlPos.y, newGlPos.z};
+        auto resolveGlPos = [&]() -> glm::vec3 {
+            if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
+                glm::vec3 planeNorm = glm::normalize(m_camera.position() - m_gizmoDragOrigGlPos);
+                float denom = glm::dot(rayDir, planeNorm);
+                if (std::abs(denom) > 1e-6f) {
+                    float t = glm::dot(m_gizmoDragOrigGlPos - rayOri, planeNorm) / denom;
+                    return m_gizmoDragOrigGlPos + (rayOri + t * rayDir - m_gizmoDragScreenHit0);
+                }
+                return m_gizmoDragOrigGlPos;
+            } else if (m_gizmoDragAxis != TransformGizmo::Axis::None) {
+                glm::vec3 axDir = TransformGizmo::axisDir(m_gizmoDragAxis);
+                float t = TransformGizmo::axisTParam(rayOri, rayDir, m_gizmoDragOrigGlPos, axDir);
+                return m_gizmoDragOrigGlPos + (t - m_gizmoDragT0) * axDir;
+            } else {
+                return rayHitY(rayOri, rayDir, m_dragPlaneY.y);
             }
-        } else if (m_gizmoDragAxis != TransformGizmo::Axis::None) {
-            // Axis-constrained drag
-            glm::vec3 axDir = TransformGizmo::axisDir(m_gizmoDragAxis);
-            float t = TransformGizmo::axisTParam(rayOri, rayDir,
-                                                  m_gizmoDragOrigGlPos, axDir);
-            glm::vec3 newGlPos = m_gizmoDragOrigGlPos + (t - m_gizmoDragT0) * axDir;
-            m_network.roads[ri].points[pi].pos = {-newGlPos.x, newGlPos.y, newGlPos.z};
-        } else {
-            // Free horizontal-plane drag
-            glm::vec3 hit = rayHitY(rayOri, rayDir, m_dragPlaneY.y);
-            m_network.roads[ri].points[pi].pos = {-hit.x, hit.y, hit.z};
-        }
+        };
 
-        makeCurrent();
-        m_roadRenderer.rebuild(this, m_network);
-        m_roadRenderer.updateSelection(this, m_network, ri, pi);
-        doneCurrent();
-        emit networkChanged();
+        if (m_editor.sel.valid()) {
+            // Drag control point
+            int ri = m_editor.sel.roadIdx;
+            int pi = m_editor.sel.pointIdx;
+            glm::vec3 newGlPos = resolveGlPos();
+            m_network.roads[ri].points[pi].pos = {-newGlPos.x, newGlPos.y, newGlPos.z};
+            makeCurrent();
+            m_roadRenderer.rebuild(this, m_network);
+            m_roadRenderer.updateSelection(this, m_network, ri, pi);
+            doneCurrent();
+            emit networkChanged();
+        } else if (m_editor.sel.hasIntersection()) {
+            // Drag intersection + connected road endpoints
+            int ixIdx = m_editor.sel.intersectionIdx;
+            if (ixIdx >= 0 && ixIdx < (int)m_network.intersections.size()) {
+                glm::vec3 newGlPos  = resolveGlPos();
+                glm::vec3 newWorld  = {-newGlPos.x, newGlPos.y, newGlPos.z};
+                m_network.intersections[ixIdx].pos = newWorld;
+                for (const auto& ep : m_ixDragEndpoints)
+                    m_network.roads[ep.roadIdx].points[ep.ptIdx].pos = newWorld + ep.origOffset;
+                makeCurrent();
+                m_roadRenderer.rebuild(this, m_network);
+                m_roadRenderer.updateSelection(this, m_network, -1, -1);
+                doneCurrent();
+                emit networkChanged();
+            }
+        }
     }
 
     // Update gizmo hover highlight when not dragging
-    if (!m_dragging && m_glReady && m_editor.mode == ToolMode::Edit &&
-        m_editor.sel.roadIdx  >= 0 &&
-        m_editor.sel.pointIdx >= 0 &&
-        m_editor.sel.roadIdx  < (int)m_network.roads.size())
-    {
-        const auto& pt = m_network.roads[m_editor.sel.roadIdx]
-                                   .points[m_editor.sel.pointIdx];
-        glm::vec3 glPos = {-pt.pos.x, pt.pos.y, pt.pos.z};
-        glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
-        auto newHover = m_transformGizmo.hitTest(
-            e->pos(), glPos, m_camera.position(), vpMat, width(), height());
-        if (newHover != m_gizmoHover) {
-            m_gizmoHover = newHover;
+    if (!m_dragging && m_glReady && m_editor.mode == ToolMode::Edit) {
+        glm::vec3 glPos;
+        bool hasGizmo = false;
+        if (m_editor.sel.roadIdx >= 0 && m_editor.sel.pointIdx >= 0 &&
+            m_editor.sel.roadIdx < (int)m_network.roads.size()) {
+            const auto& pt = m_network.roads[m_editor.sel.roadIdx]
+                                       .points[m_editor.sel.pointIdx];
+            glPos = {-pt.pos.x, pt.pos.y, pt.pos.z};
+            hasGizmo = true;
+        } else if (m_editor.sel.intersectionIdx >= 0 &&
+                   m_editor.sel.intersectionIdx < (int)m_network.intersections.size()) {
+            const auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
+            glPos = {-ix.pos.x, ix.pos.y, ix.pos.z};
+            hasGizmo = true;
+        }
+        if (hasGizmo) {
+            glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+            auto newHover = m_transformGizmo.hitTest(
+                e->pos(), glPos, m_camera.position(), vpMat, width(), height());
+            if (newHover != m_gizmoHover) { m_gizmoHover = newHover; update(); }
+        } else if (m_gizmoHover != TransformGizmo::Axis::None) {
+            m_gizmoHover = TransformGizmo::Axis::None;
             update();
         }
     }

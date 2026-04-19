@@ -7,6 +7,8 @@
 void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
     m_roads.init(f);
     m_nodes.init(f);
+    m_allPoints.init(f);
+    m_allCtrlLines.init(f);
     m_selBatch.init(f);
     m_selRoad.init(f);
     m_surfaceMesh.init(f);
@@ -49,6 +51,21 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
         m_nodes.addLine(p - glm::vec3(0, 0, kCross), p + glm::vec3(0, 0, kCross), kNode);
     }
     m_nodes.upload(f);
+
+    // All control point dots and control polygon, drawn in Edit mode
+    const glm::vec3 kPtNormal   = {0.75f, 0.75f, 0.75f};
+    const glm::vec3 kCtrlLine   = {0.45f, 0.45f, 0.45f};
+    m_allPoints.begin();
+    m_allCtrlLines.begin();
+    for (const auto& road : net.roads) {
+        for (const auto& cp : road.points)
+            m_allPoints.addPoint(toGL(cp.pos), kPtNormal);
+        for (size_t i = 0; i + 1 < road.points.size(); ++i)
+            m_allCtrlLines.addLine(toGL(road.points[i].pos),
+                                   toGL(road.points[i + 1].pos), kCtrlLine);
+    }
+    m_allPoints.upload(f);
+    m_allCtrlLines.upload(f);
 
     // Road surface mesh (all roads merged, with intersection trimming)
     std::vector<Mesh::Vertex> verts;
@@ -140,6 +157,8 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
     }
 
     // --- Centerlines, markers and selection on top ---
+    if (m_showPoints)
+        m_allCtrlLines.draw(f, lineShader, vp);  // control polygon (dim gray)
     m_roads.draw(f, lineShader, vp);
     m_nodes.draw(f, lineShader, vp);
 
@@ -149,15 +168,19 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
     m_selRoad.draw(f, lineShader, vp);
     f->glDisable(GL_POLYGON_OFFSET_LINE);
 
-    // Control point dot (screen-space circle)
+    // Control point dots (screen-space circles)
     f->glEnable(GL_PROGRAM_POINT_SIZE);
-    m_selBatch.drawPoints(f, pointShader, vp, 12.0f);
+    if (m_showPoints)
+        m_allPoints.drawPoints(f, pointShader, vp, 10.0f);  // all: gray, small
+    m_selBatch.drawPoints(f, pointShader, vp, 14.0f);       // selected: orange, larger
     f->glDisable(GL_PROGRAM_POINT_SIZE);
 }
 
 void RoadRenderer::destroy(QOpenGLFunctions_4_1_Core* f) {
     m_roads.destroy(f);
     m_nodes.destroy(f);
+    m_allPoints.destroy(f);
+    m_allCtrlLines.destroy(f);
     m_selBatch.destroy(f);
     m_selRoad.destroy(f);
     m_surfaceMesh.destroy(f);

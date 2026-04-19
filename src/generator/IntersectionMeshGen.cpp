@@ -9,16 +9,7 @@
 // ---------------------------------------------------------------------------
 namespace {
 
-// One road's entry cross-section at the intersection throat.
-struct EntryEdge {
-    glm::vec3 left;   // GL space left edge point
-    glm::vec3 right;  // GL space right edge point
-    float     angle;  // atan2 angle of the cut-point around intersection center (for sort)
-};
-
 // Walk centerline from 'fromEnd' (0=start, 1=end) until arc-length >= dist.
-// Returns the interpolated cut point and the tangent direction at that point.
-// All coordinates are in world space.
 static bool findCutPoint(const std::vector<glm::vec3>& cl, bool fromEnd,
                          float dist, glm::vec3& outPos, glm::vec3& outTangent)
 {
@@ -40,12 +31,11 @@ static bool findCutPoint(const std::vector<glm::vec3>& cl, bool fromEnd,
             glm::vec3 dir = b - a;
             float len = glm::length(dir);
             outTangent = (len > 1e-6f) ? dir / len : glm::vec3(0, 0, 1);
-            if (fromEnd) outTangent = -outTangent; // point away from intersection
+            if (fromEnd) outTangent = -outTangent;
             return true;
         }
         accumulated += segLen;
     }
-    // dist > total length — use endpoint
     outPos = fromEnd ? cl.front() : cl.back();
     int li = fromEnd ? 1 : (n - 2);
     int hi = fromEnd ? 0 : (n - 1);
@@ -56,7 +46,6 @@ static bool findCutPoint(const std::vector<glm::vec3>& cl, bool fromEnd,
     return true;
 }
 
-// Compute total left / right profile widths from active lane flags.
 static void laneWidths(const Road& road, float& leftW, float& rightW) {
     leftW = rightW = 0.0f;
     if (road.useLaneLeft2)  leftW  += road.defaultWidthLaneLeft2;
@@ -66,6 +55,32 @@ static void laneWidths(const Road& road, float& leftW, float& rightW) {
     if (road.useLaneRight1) rightW += road.defaultWidthLaneRight1;
     if (road.useLaneRight2) rightW += road.defaultWidthLaneRight2;
     if (leftW < 1e-4f && rightW < 1e-4f) leftW = rightW = 0.1f;
+}
+
+// Quadratic Bezier: P0 → ctrl → P1 at parameter t.
+static glm::vec3 bezier2(const glm::vec3& p0, const glm::vec3& ctrl,
+                         const glm::vec3& p1, float t)
+{
+    float u = 1.0f - t;
+    return u*u*p0 + 2.0f*u*t*ctrl + t*t*p1;
+}
+
+// Line intersection in the XZ plane.
+// Finds K such that p1 + s*d1 == p2 + t*d2 (for some s, t).
+// Returns false if lines are parallel.
+static bool lineIntersectXZ(const glm::vec3& p1, const glm::vec3& d1,
+                             const glm::vec3& p2, const glm::vec3& d2,
+                             glm::vec3& outK)
+{
+    // 2D cross product of d1 x d2 in XZ
+    float denom = d1.x * d2.z - d1.z * d2.x;
+    if (std::abs(denom) < 1e-6f) return false;
+    float dx = p2.x - p1.x;
+    float dz = p2.z - p1.z;
+    float s   = (dx * d2.z - dz * d2.x) / denom;
+    outK   = p1 + s * d1;
+    outK.y = (p1.y + p2.y) * 0.5f;
+    return true;
 }
 
 } // anonymous namespace
@@ -79,11 +94,25 @@ void IntersectionMeshGen::generate(
     std::vector<Mesh::Vertex>&   outVerts,
     std::vector<uint32_t>&       outIndices)
 {
+    static constexpr int   kArcSegs = 8;
+    static constexpr float kYOffset = 0.003f;
+
     const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
     const glm::vec3 normal(0.0f, 1.0f, 0.0f);
 
-    // --- 1. Collect entry edges from all roads connected to this intersection ---
-    std::vector<EntryEdge> edges;
+    // --- 1. Collect entry edge points from all connected roads ---
+    // Each road contributes left + right edge at entryDist, plus the road tangent
+    // at that cut (pointing away from the intersection) for arc control-point math.
+
+    struct BoundaryPt {
+        glm::vec3 posWorld;      // world space (for arc geometry)
+        glm::vec3 posGL;         // GL space (for output mesh)
+        glm::vec3 tangentWorld;  // unit tangent pointing AWAY from intersection
+        float     angle;         // atan2 around intersection center (for sort)
+        int       roadIdx;       // which road, to detect road-to-road gaps
+    };
+    std::vector<BoundaryPt> boundary;
+    int roadIdx = 0;
 
     for (const auto& road : net.roads) {
         bool atStart = road.startIntersectionId == ix.id;
@@ -94,84 +123,89 @@ void IntersectionMeshGen::generate(
         float entryDist = ix.entryDist;
         if (entryDist < 0.1f) entryDist = 0.1f;
 
-        // Build a fine centerline (world space)
         auto cl = ClothoidGen::buildCenterline(road.points, 0.5f, road.equalMidpoint);
         if (cl.size() < 2) continue;
 
+        bool fromEnd = atEnd;
         glm::vec3 cutPos, tangent;
-        bool fromEnd = atEnd; // if road ends here, walk from back
         if (!findCutPoint(cl, fromEnd, entryDist, cutPos, tangent)) continue;
 
         float leftW, rightW;
         laneWidths(road, leftW, rightW);
 
-        // Binormal: cross(worldUp, tangent), pointing right of travel direction
         glm::vec3 binom = glm::cross(worldUp, tangent);
         float bLen = glm::length(binom);
         if (bLen < 1e-6f) continue;
         binom /= bLen;
 
-        // Left/right edge in world space → convert to GL space
         glm::vec3 leftWorld  = cutPos - binom * leftW;
         glm::vec3 rightWorld = cutPos + binom * rightW;
 
-        // Angle of cutPos around intersection center (XZ plane, world coords)
-        float angle = std::atan2(cutPos.z - ix.pos.z, cutPos.x - ix.pos.x);
+        auto angleOf = [&](const glm::vec3& p) {
+            return std::atan2(p.z - ix.pos.z, p.x - ix.pos.x);
+        };
 
-        EntryEdge e;
-        e.left  = toGL(leftWorld);
-        e.right = toGL(rightWorld);
-        e.angle = angle;
-        edges.push_back(e);
+        boundary.push_back({ leftWorld,  toGL(leftWorld),  tangent, angleOf(leftWorld),  roadIdx });
+        boundary.push_back({ rightWorld, toGL(rightWorld), tangent, angleOf(rightWorld), roadIdx });
+        ++roadIdx;
     }
 
-    if (edges.size() < 2) return; // need at least two roads
+    if ((int)boundary.size() < 4) return;
 
-    // --- 2. Sort by angle around intersection center ---
-    std::sort(edges.begin(), edges.end(),
-              [](const EntryEdge& a, const EntryEdge& b) { return a.angle < b.angle; });
+    // --- 2. Sort all boundary points by angle around intersection center ---
+    std::sort(boundary.begin(), boundary.end(),
+              [](const BoundaryPt& a, const BoundaryPt& b) { return a.angle < b.angle; });
 
-    // --- 3. Fan-triangulate from center ---
-    // For each adjacent pair of entry edges, determine which side faces the center
-    // and emit a triangle: (center, innerEdgeA, innerEdgeB)
+    // --- 3. Build polygon with Bezier arcs in the gaps between different roads ---
+    // For consecutive boundary points from the SAME road: straight line (road cross-section).
+    // For consecutive boundary points from DIFFERENT roads: quadratic Bezier arc.
+    //   Control point = intersection of the two tangent lines extended INTO the gap.
+    //   This creates a smooth inward-curved corner between the roads.
 
+    struct PolyPt { glm::vec3 posGL; };
+    std::vector<PolyPt> poly;
+
+    int M = (int)boundary.size();
+    for (int i = 0; i < M; ++i) {
+        const BoundaryPt& cur  = boundary[i];
+        const BoundaryPt& nxt  = boundary[(i + 1) % M];
+
+        poly.push_back({ cur.posGL });
+
+        if (cur.roadIdx != nxt.roadIdx) {
+            // Gap between two roads. Tangents point AWAY from intersection,
+            // so -tangent points INTO the gap (toward the intersection interior).
+            glm::vec3 K;
+            if (lineIntersectXZ(cur.posWorld, -cur.tangentWorld,
+                                 nxt.posWorld, -nxt.tangentWorld, K)) {
+                // Sample arc interior points (skip endpoints: they are added as boundary pts)
+                for (int k = 1; k < kArcSegs; ++k) {
+                    float t    = float(k) / float(kArcSegs);
+                    glm::vec3 p = bezier2(cur.posWorld, K, nxt.posWorld, t);
+                    poly.push_back({ toGL(p) });
+                }
+            }
+            // parallel roads: no arc, straight edge is fine
+        }
+    }
+
+    // --- 4. Fan-triangulate the polygon from the intersection center ---
     glm::vec3 center = toGL(ix.pos);
-    // Raise slightly above road surface to avoid z-fighting with road mesh
-    center.y += 0.002f;
+    center.y += kYOffset;
 
     const uint32_t base = static_cast<uint32_t>(outVerts.size());
     outVerts.push_back({ center, normal, {0.5f, 0.5f} });
 
-    // Add all edge points (left and right of each entry)
-    // Determine which edge (left or right) is the "inner" edge
-    // (closer to intersection center) for each road entry.
-    struct EdgePair {
-        glm::vec3 inner, outer;
-    };
-    std::vector<EdgePair> pairs;
-    pairs.reserve(edges.size());
-
-    for (const auto& e : edges) {
-        float distL = glm::distance(e.left,  center);
-        float distR = glm::distance(e.right, center);
-        if (distL < distR)
-            pairs.push_back({ e.left,  e.right });
-        else
-            pairs.push_back({ e.right, e.left  });
+    for (auto& pt : poly) {
+        pt.posGL.y += kYOffset;
+        outVerts.push_back({ pt.posGL, normal, {0.5f, 0.5f} });
     }
 
-    // Add inner edge vertices
-    uint32_t innerBase = base + 1;
-    for (const auto& p : pairs)
-        outVerts.push_back({ p.inner, normal, {0.0f, 0.0f} });
-
-    // Emit triangles: (center, innerA, innerB) for each consecutive pair (wrapping)
-    int N = (int)pairs.size();
-    for (int i = 0; i < N; ++i) {
-        int j = (i + 1) % N;
-        // Fan triangle from center to adjacent inner edges
-        outIndices.push_back(base);                      // center
-        outIndices.push_back(innerBase + (uint32_t)i);   // innerA
-        outIndices.push_back(innerBase + (uint32_t)j);   // innerB
+    int P = (int)poly.size();
+    for (int i = 0; i < P; ++i) {
+        int j = (i + 1) % P;
+        outIndices.push_back(base);
+        outIndices.push_back(base + 1 + (uint32_t)i);
+        outIndices.push_back(base + 1 + (uint32_t)j);
     }
 }

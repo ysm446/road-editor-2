@@ -23,16 +23,20 @@ public:
                  Shader& lineShader, Shader& roadShader, Shader& pointShader,
                  const glm::mat4& vp);
 
-    void setWireframe(bool on) { m_wireframe = on; }
+    void setWireframe (bool on) { m_wireframe  = on; }
+    void setShowPoints(bool on) { m_showPoints = on; }
 
     void destroy(QOpenGLFunctions_4_1_Core* f);
 
 private:
-    bool m_wireframe = false;
+    bool m_wireframe   = false;
+    bool m_showPoints  = true;
     LineBatch m_roads;       // centerlines (unselected)
     LineBatch m_nodes;       // intersection markers
-    LineBatch m_selBatch;    // selected control point highlight
-    LineBatch m_selRoad;     // selected road centerline highlight
+    LineBatch m_allPoints;    // all control point dots (gray)
+    LineBatch m_allCtrlLines; // control polygon for all roads (dim, Edit mode)
+    LineBatch m_selBatch;     // selected control point (orange)
+    LineBatch m_selRoad;      // selected road centerline highlight
     Mesh      m_surfaceMesh;       // road surface quads
     Mesh      m_intersectionMesh; // intersection fill
 

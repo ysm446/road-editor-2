@@ -9,43 +9,6 @@
 // ---------------------------------------------------------------------------
 namespace {
 
-// Walk centerline from 'fromEnd' (0=start, 1=end) until arc-length >= dist.
-static bool findCutPoint(const std::vector<glm::vec3>& cl, bool fromEnd,
-                         float dist, glm::vec3& outPos, glm::vec3& outTangent)
-{
-    if (cl.size() < 2) return false;
-
-    float accumulated = 0.0f;
-    auto getIdx = [&](int i) -> const glm::vec3& {
-        return fromEnd ? cl[cl.size() - 1 - i] : cl[i];
-    };
-    int n = (int)cl.size();
-    for (int i = 0; i + 1 < n; ++i) {
-        const glm::vec3& a = getIdx(i);
-        const glm::vec3& b = getIdx(i + 1);
-        float segLen = glm::distance(a, b);
-        if (segLen < 1e-6f) continue;
-        if (accumulated + segLen >= dist) {
-            float t = (dist - accumulated) / segLen;
-            outPos     = glm::mix(a, b, t);
-            glm::vec3 dir = b - a;
-            float len = glm::length(dir);
-            outTangent = (len > 1e-6f) ? dir / len : glm::vec3(0, 0, 1);
-            if (fromEnd) outTangent = -outTangent;
-            return true;
-        }
-        accumulated += segLen;
-    }
-    outPos = fromEnd ? cl.front() : cl.back();
-    int li = fromEnd ? 1 : (n - 2);
-    int hi = fromEnd ? 0 : (n - 1);
-    glm::vec3 dir = cl[hi] - cl[li];
-    float len = glm::length(dir);
-    outTangent = (len > 1e-6f) ? dir / len : glm::vec3(0, 0, 1);
-    if (fromEnd) outTangent = -outTangent;
-    return true;
-}
-
 static void laneWidths(const Road& road, float& leftW, float& rightW) {
     leftW = rightW = 0.0f;
     if (road.useLaneLeft2)  leftW  += road.defaultWidthLaneLeft2;
@@ -100,9 +63,10 @@ void IntersectionMeshGen::generate(
     const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
     const glm::vec3 normal(0.0f, 1.0f, 0.0f);
 
-    // --- 1. Collect entry edge points from all connected roads ---
-    // Each road contributes left + right edge at entryDist, plus the road tangent
-    // at that cut (pointing away from the intersection) for arc control-point math.
+    // --- 1. Collect boundary edge points from all connected road endpoints ---
+    // Each road contributes left + right edge at the actual connected endpoint,
+    // plus the road tangent at that endpoint (pointing away from the intersection)
+    // for arc control-point math.
 
     struct BoundaryPt {
         glm::vec3 posWorld;      // world space (for arc geometry)
@@ -120,15 +84,24 @@ void IntersectionMeshGen::generate(
         if (!atStart && !atEnd) continue;
         if (road.points.size() < 2 || road.active == 0) continue;
 
-        float entryDist = ix.entryDist;
-        if (entryDist < 0.1f) entryDist = 0.1f;
-
         auto cl = ClothoidGen::buildCenterline(road.points, 0.5f, road.equalMidpoint);
         if (cl.size() < 2) continue;
 
-        bool fromEnd = atEnd;
-        glm::vec3 cutPos, tangent;
-        if (!findCutPoint(cl, fromEnd, entryDist, cutPos, tangent)) continue;
+        glm::vec3 endpointPos;
+        glm::vec3 tangent;
+        if (atStart) {
+            endpointPos = cl.front();
+            glm::vec3 dir = cl[1] - cl[0];
+            float len = glm::length(dir);
+            if (len < 1e-6f) continue;
+            tangent = dir / len;
+        } else {
+            endpointPos = cl.back();
+            glm::vec3 dir = cl[(int)cl.size() - 1] - cl[(int)cl.size() - 2];
+            float len = glm::length(dir);
+            if (len < 1e-6f) continue;
+            tangent = dir / len;
+        }
 
         float leftW, rightW;
         laneWidths(road, leftW, rightW);
@@ -138,8 +111,8 @@ void IntersectionMeshGen::generate(
         if (bLen < 1e-6f) continue;
         binom /= bLen;
 
-        glm::vec3 leftWorld  = cutPos - binom * leftW;
-        glm::vec3 rightWorld = cutPos + binom * rightW;
+        glm::vec3 leftWorld  = endpointPos - binom * leftW;
+        glm::vec3 rightWorld = endpointPos + binom * rightW;
 
         auto angleOf = [&](const glm::vec3& p) {
             return std::atan2(p.z - ix.pos.z, p.x - ix.pos.x);

@@ -20,6 +20,17 @@
 
 namespace {
 constexpr int kBoxSelectThresholdPx = 4;
+constexpr int kScreenHandlePriorityRadiusPx = 26;
+
+const char* axisName(TransformGizmo::Axis axis) {
+    switch (axis) {
+    case TransformGizmo::Axis::X: return "X";
+    case TransformGizmo::Axis::Y: return "Y";
+    case TransformGizmo::Axis::Z: return "Z";
+    case TransformGizmo::Axis::Screen: return "Screen";
+    default: return "None";
+    }
+}
 
 bool isShiftHeld(Qt::KeyboardModifiers mods) {
     return mods.testFlag(Qt::ShiftModifier) ||
@@ -522,8 +533,31 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
     if (m_editor.sel.valid() || m_editor.sel.hasIntersection()) {
         glm::vec3 glPos = selectionPivotGlPos();
         glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+        QPoint pivotScreen;
+        bool pivotScreenValid = false;
+        glm::vec4 clip = vpMat * glm::vec4(glPos, 1.0f);
+        if (clip.w > 0.0f) {
+            glm::vec3 ndc = glm::vec3(clip) / clip.w;
+            pivotScreen = QPoint(
+                static_cast<int>((ndc.x + 1.0f) * 0.5f * width()),
+                static_cast<int>((1.0f - ndc.y) * 0.5f * height()));
+            pivotScreenValid = true;
+        }
         auto axis = m_transformGizmo.hitTest(
             e->pos(), glPos, cameraGlPos(), vpMat, width(), height());
+        if (axis == TransformGizmo::Axis::None && pivotScreenValid) {
+            QPoint delta = e->pos() - pivotScreen;
+            int distSq = delta.x() * delta.x() + delta.y() * delta.y();
+            if (distSq <= kScreenHandlePriorityRadiusPx * kScreenHandlePriorityRadiusPx) {
+                axis = TransformGizmo::Axis::Screen;
+                appendInputDebugLog("gizmo center-bias fallback -> Screen");
+            }
+        }
+        appendInputDebugLog(QString("gizmo hit axis=%1 pivotGl=(%2,%3,%4)")
+            .arg(axisName(axis))
+            .arg(glPos.x, 0, 'f', 3)
+            .arg(glPos.y, 0, 'f', 3)
+            .arg(glPos.z, 0, 'f', 3));
 
         if (axis != TransformGizmo::Axis::None) {
             m_gizmoDragAxis      = axis;
@@ -571,15 +605,12 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
     int ri = -1;
     int pi = -1;
     if (pickControlPoint(rayOri, rayDir, ri, pi)) {
-        if (!m_editor.sel.containsPoint(ri, pi) || !m_editor.sel.valid())
-            m_editor.sel.setSinglePoint(ri, pi);
-
-        glm::vec3 pivotGlPos = selectionPivotGlPos();
+        appendInputDebugLog(QString("point pick select-only road=%1 point=%2").arg(ri).arg(pi));
+        m_editor.sel.setSinglePoint(ri, pi);
         m_gizmoDragAxis = TransformGizmo::Axis::None;
         makeCurrent();
         syncSelectionVisuals();
         doneCurrent();
-        beginPointDrag(pivotGlPos);
         return;
     }
 
@@ -647,6 +678,7 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
         if (m_gizmoDragAxis == TransformGizmo::Axis::Screen && m_skipNextScreenDragMove) {
             auto [glHit, ok] = resolveScreenGlHit();
             if (ok) m_gizmoDragLastGlPos = glHit;
+            appendInputDebugLog("drag move type=Screen prime");
             m_skipNextScreenDragMove = false;
             return;
         }
@@ -662,9 +694,19 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
 
         if (m_editor.sel.valid()) {
             if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
+                appendInputDebugLog("drag move type=Screen points");
                 auto [glHit, ok] = resolveScreenGlHit();
                 if (!ok) return;
                 glm::vec3 deltaGl = glHit - m_gizmoDragLastGlPos;
+                if (glm::length(deltaGl) > 30.0f) {
+                    appendInputDebugLog(QString("screenDrag jump points deltaGl=(%1,%2,%3) len=%4 mouse=(%5,%6) depth=%7")
+                        .arg(deltaGl.x, 0, 'f', 3)
+                        .arg(deltaGl.y, 0, 'f', 3)
+                        .arg(deltaGl.z, 0, 'f', 3)
+                        .arg(glm::length(deltaGl), 0, 'f', 3)
+                        .arg(e->pos().x()).arg(e->pos().y())
+                        .arg(m_gizmoDragScreenDepth, 0, 'f', 6));
+                }
                 glm::vec3 deltaWorld = {-deltaGl.x, deltaGl.y, deltaGl.z};
                 for (const auto& selPt : m_editor.sel.points) {
                     auto& pos = m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos;
@@ -672,11 +714,13 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
                 }
                 m_gizmoDragLastGlPos = glHit;
             } else {
+                appendInputDebugLog(QString("drag move type=%1 points").arg(axisName(m_gizmoDragAxis)));
                 glm::vec3 newPivotGlPos = resolveGlPos();
+                glm::vec3 deltaGl = newPivotGlPos - m_gizmoDragOrigGlPos;
                 glm::vec3 deltaWorld = {
-                    -(newPivotGlPos.x - m_gizmoDragOrigGlPos.x),
-                    newPivotGlPos.y - m_gizmoDragOrigGlPos.y,
-                    newPivotGlPos.z - m_gizmoDragOrigGlPos.z
+                    (m_gizmoDragAxis == TransformGizmo::Axis::X) ? deltaGl.x : -deltaGl.x,
+                    deltaGl.y,
+                    deltaGl.z
                 };
 
                 for (const auto& origin : m_pointDragOrigins) {
@@ -694,17 +738,32 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
             int selIxIdx = m_editor.sel.intersectionIdx;
             if (selIxIdx >= 0 && selIxIdx < (int)m_network.intersections.size()) {
                 if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
+                    appendInputDebugLog("drag move type=Screen intersection");
                     auto [glHit, ok] = resolveScreenGlHit();
                     if (!ok) return;
                     glm::vec3 deltaGl = glHit - m_gizmoDragLastGlPos;
+                    if (glm::length(deltaGl) > 30.0f) {
+                        appendInputDebugLog(QString("screenDrag jump ix deltaGl=(%1,%2,%3) len=%4 mouse=(%5,%6) depth=%7")
+                            .arg(deltaGl.x, 0, 'f', 3)
+                            .arg(deltaGl.y, 0, 'f', 3)
+                            .arg(deltaGl.z, 0, 'f', 3)
+                            .arg(glm::length(deltaGl), 0, 'f', 3)
+                            .arg(e->pos().x()).arg(e->pos().y())
+                            .arg(m_gizmoDragScreenDepth, 0, 'f', 6));
+                    }
                     glm::vec3 deltaWorld = {-deltaGl.x, deltaGl.y, deltaGl.z};
                     m_network.intersections[selIxIdx].pos += deltaWorld;
                     for (const auto& ep : m_ixDragEndpoints)
                         m_network.roads[ep.roadIdx].points[ep.ptIdx].pos += deltaWorld;
                     m_gizmoDragLastGlPos = glHit;
                 } else {
+                    appendInputDebugLog(QString("drag move type=%1 intersection").arg(axisName(m_gizmoDragAxis)));
                     glm::vec3 newGlPos = resolveGlPos();
-                    glm::vec3 newWorld = {-newGlPos.x, newGlPos.y, newGlPos.z};
+                    glm::vec3 newWorld = {
+                        (m_gizmoDragAxis == TransformGizmo::Axis::X) ? newGlPos.x : -newGlPos.x,
+                        newGlPos.y,
+                        newGlPos.z
+                    };
                     m_network.intersections[selIxIdx].pos = newWorld;
                     for (const auto& ep : m_ixDragEndpoints)
                         m_network.roads[ep.roadIdx].points[ep.ptIdx].pos = newWorld + ep.origOffset;

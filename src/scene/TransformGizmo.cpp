@@ -198,7 +198,9 @@ TransformGizmo::Axis TransformGizmo::hitTest(
     if (bestAxis != Axis::None)
         return bestAxis;
 
-    const float kCenterRadiusSq = 12.0f * 12.0f;
+    // Make the center handle easier to grab than control points underneath it.
+    // This radius should stay larger than the point-pick radius in the viewport.
+    const float kCenterRadiusSq = 22.0f * 22.0f;
     if (okC) {
         glm::vec2 d = mp - sc;
         if (glm::dot(d, d) < kCenterRadiusSq)

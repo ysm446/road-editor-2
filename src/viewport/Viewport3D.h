@@ -32,9 +32,13 @@ public:
 
 public slots:
     void setToolMode(ToolMode m);
+    void setEditSubTool(EditSubTool subTool);
     void applyRoadProperties(int roadIdx, RoadProperties props);
     void applySelectedVerticalCurveProperties(int roadIdx, int curveIdx, float u, float vcl, float offset);
     void removeSelectedVerticalCurve(int roadIdx, int curveIdx);
+    void applySelectedBankAngleProperties(int roadIdx, int curveIdx, float u, float targetSpeed,
+                                          bool useAngle, float angle);
+    void removeSelectedBankAngle(int roadIdx, int curveIdx);
     void setWireframe(bool on);
     void applySelectedSocketProperties(const QString& name, float yaw, bool enabled);
     void addSocketToSelectedIntersection();
@@ -63,7 +67,10 @@ private:
     glm::vec3 screenToGlAtDepth(const QPoint& p, float ndcZ) const;
     bool pickControlPoint(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
                           int& outRoadIdx, int& outPointIdx);
+    bool pickControlEdge(const QPoint& screenPos, int& outRoadIdx, int& outInsertPointIdx,
+                         glm::vec3& outWorldPos) const;
     bool pickVerticalCurvePoint(const QPoint& screenPos, int& outRoadIdx, int& outCurveIdx) const;
+    bool pickBankAnglePoint(const QPoint& screenPos, int& outRoadIdx, int& outCurveIdx) const;
     bool findNearestRoadU(const QPoint& screenPos, int roadIdx, float& outU) const;
     glm::vec3 sampleRoadPosition(const Road& road, float u) const;
     bool pickEndpointControlPoint(const QPoint& screenPos, int& outRoadIdx, int& outPointIdx,
@@ -88,9 +95,11 @@ private:
     void connectEndpointToSocket(int roadIdx, int pointIdx, int intersectionIdx, int socketIdx);
     void connectEndpointToSelectedSocket(int roadIdx, int pointIdx);
     void syncLinkedEndpointsForIntersection(int intersectionIdx);
+    void deleteSelectedControlPoints();
     void syncSelectionVisuals();
     void beginPointDrag(const glm::vec3& pivotGlPos);
     int selectedRoadForPanels() const;
+    void clearCreateToolState();
 
     Camera         m_camera;
     Grid           m_grid;
@@ -129,6 +138,15 @@ private:
     bool      m_verticalCurveDragging = false;
     int       m_verticalCurveDragRoad = -1;
     int       m_verticalCurveDragPoint = -1;
+    bool      m_bankAngleDragging = false;
+    int       m_bankAngleDragRoad = -1;
+    int       m_bankAngleDragPoint = -1;
+    glm::vec3 m_createPreviewPos = {0.0f, 0.0f, 0.0f};
+    int       m_createHoverIntersectionIdx = -1;
+    int       m_createHoverSocketIdx = -1;
+    int       m_pendingRoadStartIntersectionIdx = -1;
+    int       m_pendingRoadStartSocketIdx = -1;
+    std::vector<glm::vec3> m_pendingRoadPoints;
 
     // Box selection state
     bool      m_boxSelectPending = false;

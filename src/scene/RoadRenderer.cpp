@@ -2,9 +2,23 @@
 #include "../generator/RoadMeshGen.h"
 #include "../generator/ClothoidGen.h"
 #include "../generator/VerticalCurveGen.h"
+#include "../generator/BankAngleGen.h"
 #include "../generator/IntersectionMeshGen.h"
 #include <set>
+#include <cmath>
 #include <glm/gtc/matrix_transform.hpp>
+
+namespace {
+glm::vec3 previewGradeColor(float value, float threshold) {
+    const float safeThreshold = std::max(0.1f, threshold);
+    const float ratio = std::clamp(value / safeThreshold, 0.0f, 1.5f);
+    if (ratio > 1.0f)
+        return {0.8f, 0.0f, 0.48f};
+    const glm::vec3 low = {0.0f, 0.8f, 0.8f};
+    const glm::vec3 high = {0.8f, 0.36f, 0.08f};
+    return glm::mix(low, high, ratio);
+}
+}
 
 void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
     m_roads.init(f);
@@ -29,6 +43,7 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     const glm::vec3 kArc       = {0.2f, 0.9f, 0.2f};
     const glm::vec3 kVerticalCrest = {1.0f, 0.55f, 0.15f};
     const glm::vec3 kVerticalSag   = {0.45f, 0.85f, 1.0f};
+    const float     kBankAngleMaxDegrees = 15.0f;
     const glm::vec3 kNode      = {0.35f, 0.90f, 0.45f};
     const glm::vec3 kSocketLine = {0.55f, 0.65f, 0.90f};
     const glm::vec3 kSocketPoint = {0.70f, 0.80f, 1.00f};
@@ -52,9 +67,13 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
         auto baseCurve = ClothoidGen::buildCenterlineDetailed(
             road.points, road.segmentLength, road.equalMidpoint);
         auto curve = VerticalCurveGen::applyDetailed(road, baseCurve, road.segmentLength);
-        for (size_t i = 0; i + 1 < curve.size(); ++i)
-            m_roads.addLine(toGL(curve[i].pos), toGL(curve[i + 1].pos),
-                            kindColor(curve[i]));
+        auto bankAngles = BankAngleGen::sampleAnglesRadians(road, curve);
+        for (size_t i = 0; i + 1 < curve.size(); ++i) {
+            glm::vec3 color = kindColor(curve[i]);
+            if (m_bankAnglePreviewColors && i < bankAngles.size())
+                color = previewGradeColor(glm::degrees(std::abs(bankAngles[i])), kBankAngleMaxDegrees);
+            m_roads.addLine(toGL(curve[i].pos), toGL(curve[i + 1].pos), color);
+        }
     }
     m_roads.upload(f);
 

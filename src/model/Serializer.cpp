@@ -64,6 +64,24 @@ static json writeVerticalCurvePoint(const VerticalCurvePoint& p) {
     };
 }
 
+static BankAnglePoint readBankAnglePoint(const json& j) {
+    BankAnglePoint p;
+    p.u = j.value("u", j.value("uCoord", 0.0f));
+    p.targetSpeed = j.value("targetSpeed", 40.0f);
+    p.useAngle = j.value("useAngle", j.value("overrideBank", 0)) ? 1 : 0;
+    p.angle = j.value("angle", j.value("bankAngle", 0.0f));
+    return p;
+}
+
+static json writeBankAnglePoint(const BankAnglePoint& p) {
+    return {
+        {"u", p.u},
+        {"targetSpeed", p.targetSpeed},
+        {"useAngle", p.useAngle},
+        {"angle", p.angle}
+    };
+}
+
 static std::vector<IntersectionSocket> defaultSockets(float entryDist) {
     const float radius = std::max(entryDist, 12.0f);
     return {
@@ -150,6 +168,8 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
 
         for (const auto& jv : jr.value("verticalCurve", json::array()))
             r.verticalCurve.push_back(readVerticalCurvePoint(jv));
+        for (const auto& jb : jr.value("bankAngle", json::array()))
+            r.bankAngle.push_back(readBankAnglePoint(jb));
 
         if (!r.startLink.connected())
             r.startIntersectionId.clear();
@@ -226,6 +246,8 @@ bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
         jr["point"] = jPoints;
         for (const auto& p : r.verticalCurve)
             jr["verticalCurve"].push_back(writeVerticalCurvePoint(p));
+        for (const auto& p : r.bankAngle)
+            jr["bankAngle"].push_back(writeBankAnglePoint(p));
         jRoads.push_back(jr);
     }
     doc["roads"] = jRoads;

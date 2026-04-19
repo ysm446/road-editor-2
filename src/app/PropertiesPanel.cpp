@@ -120,6 +120,35 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     verticalForm->addRow(m_removeVerticalCurveButton);
     root->addWidget(m_verticalCurveGroup);
 
+    m_bankAngleGroup = new QGroupBox("Bank Angle", this);
+    auto* bankForm = new QFormLayout(m_bankAngleGroup);
+    bankForm->setLabelAlignment(Qt::AlignRight);
+
+    m_bankUCoordSpin = new QDoubleSpinBox(this);
+    m_bankUCoordSpin->setRange(0.0, 1.0);
+    m_bankUCoordSpin->setDecimals(4);
+    m_bankUCoordSpin->setSingleStep(0.01);
+    bankForm->addRow("U:", m_bankUCoordSpin);
+
+    m_bankTargetSpeedSpin = new QDoubleSpinBox(this);
+    m_bankTargetSpeedSpin->setRange(0.0, 200.0);
+    m_bankTargetSpeedSpin->setDecimals(1);
+    m_bankTargetSpeedSpin->setSuffix(" km/h");
+    bankForm->addRow("Target Speed:", m_bankTargetSpeedSpin);
+
+    m_bankUseAngleCheck = new QCheckBox("Use explicit angle", this);
+    bankForm->addRow("Mode:", m_bankUseAngleCheck);
+
+    m_bankAngleSpin = new QDoubleSpinBox(this);
+    m_bankAngleSpin->setRange(-90.0, 90.0);
+    m_bankAngleSpin->setDecimals(1);
+    m_bankAngleSpin->setSuffix(" deg");
+    bankForm->addRow("Angle:", m_bankAngleSpin);
+
+    m_removeBankAngleButton = new QPushButton("Remove Point", this);
+    bankForm->addRow(m_removeBankAngleButton);
+    root->addWidget(m_bankAngleGroup);
+
     m_socketGroup = new QGroupBox("Socket", this);
     auto* socketForm = new QFormLayout(m_socketGroup);
     socketForm->setLabelAlignment(Qt::AlignRight);
@@ -181,6 +210,16 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
             this, QOverload<>::of(&PropertiesPanel::applyVerticalCurveChanges));
     connect(m_removeVerticalCurveButton, &QPushButton::clicked,
             this, &PropertiesPanel::removeVerticalCurve);
+    connect(m_bankUCoordSpin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyBankAngleChanges));
+    connect(m_bankTargetSpeedSpin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyBankAngleChanges));
+    connect(m_bankUseAngleCheck, &QCheckBox::toggled,
+            this, QOverload<>::of(&PropertiesPanel::applyBankAngleChanges));
+    connect(m_bankAngleSpin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyBankAngleChanges));
+    connect(m_removeBankAngleButton, &QPushButton::clicked,
+            this, &PropertiesPanel::removeBankAngle);
     connect(m_socketNameEdit, &QLineEdit::editingFinished,
             this, &PropertiesPanel::applySocketChanges);
     connect(m_socketYawSpin, &QDoubleSpinBox::valueChanged,
@@ -196,6 +235,7 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
 
     setRoadEnabled(false);
     setVerticalCurveEnabled(false);
+    setBankAngleEnabled(false);
     setSocketEnabled(false);
 }
 
@@ -210,7 +250,7 @@ void PropertiesPanel::setNetwork(const RoadNetwork* net) {
 void PropertiesPanel::onSelectionChanged(int roadIdx) {
     m_roadIdx = roadIdx;
     if (!m_net || roadIdx < 0 || roadIdx >= (int)m_net->roads.size()) {
-        if (m_socketIdx < 0 && m_verticalCurveIdx < 0) {
+        if (m_socketIdx < 0 && m_verticalCurveIdx < 0 && m_bankAngleIdx < 0) {
             m_nameLabel->setText("—");
             setRoadEnabled(false);
         }
@@ -223,6 +263,7 @@ void PropertiesPanel::onSelectionChanged(int roadIdx) {
 void PropertiesPanel::onSelectionStateChanged(const Selection& sel) {
     m_roadIdx = sel.roadIdx;
     m_verticalCurveIdx = sel.verticalCurveIdx;
+    m_bankAngleIdx = sel.bankAngleIdx;
     m_intersectionIdx = sel.intersectionIdx;
     m_socketIdx = sel.socketIdx;
 
@@ -230,12 +271,25 @@ void PropertiesPanel::onSelectionStateChanged(const Selection& sel) {
         sel.roadIdx >= 0 && sel.roadIdx < (int)m_net->roads.size()) {
         populateVerticalCurve(m_net->roads[sel.roadIdx], sel.verticalCurveIdx);
         setVerticalCurveEnabled(true);
+        setBankAngleEnabled(false);
         setSocketEnabled(false);
         setRoadEnabled(false);
         return;
     }
 
     setVerticalCurveEnabled(false);
+
+    if (m_net && sel.hasBankAngle() &&
+        sel.roadIdx >= 0 && sel.roadIdx < (int)m_net->roads.size()) {
+        populateBankAngle(m_net->roads[sel.roadIdx], sel.bankAngleIdx);
+        setVerticalCurveEnabled(false);
+        setBankAngleEnabled(true);
+        setSocketEnabled(false);
+        setRoadEnabled(false);
+        return;
+    }
+
+    setBankAngleEnabled(false);
 
     if (m_net && sel.hasSocket() &&
         sel.intersectionIdx >= 0 && sel.intersectionIdx < (int)m_net->intersections.size()) {
@@ -261,6 +315,9 @@ void PropertiesPanel::onNetworkChanged() {
     if (m_net && m_verticalCurveIdx >= 0 &&
         m_roadIdx >= 0 && m_roadIdx < (int)m_net->roads.size())
         populateVerticalCurve(m_net->roads[m_roadIdx], m_verticalCurveIdx);
+    if (m_net && m_bankAngleIdx >= 0 &&
+        m_roadIdx >= 0 && m_roadIdx < (int)m_net->roads.size())
+        populateBankAngle(m_net->roads[m_roadIdx], m_bankAngleIdx);
     if (m_net && m_socketIdx >= 0 &&
         m_intersectionIdx >= 0 && m_intersectionIdx < (int)m_net->intersections.size())
         populateSocket(m_net->intersections[m_intersectionIdx], m_socketIdx);
@@ -350,6 +407,32 @@ void PropertiesPanel::populateVerticalCurve(const Road& road, int verticalCurveI
     m_verticalOffsetSpin->blockSignals(false);
 }
 
+void PropertiesPanel::populateBankAngle(const Road& road, int bankAngleIdx) {
+    if (bankAngleIdx < 0 || bankAngleIdx >= (int)road.bankAngle.size()) return;
+
+    const auto& point = road.bankAngle[bankAngleIdx];
+    QString roadName = road.name.empty()
+        ? QString::fromStdString(road.id)
+        : QString::fromStdString(road.name);
+    m_nameLabel->setText(roadName + QString(" / Bank %1").arg(bankAngleIdx));
+
+    m_bankUCoordSpin->blockSignals(true);
+    m_bankTargetSpeedSpin->blockSignals(true);
+    m_bankUseAngleCheck->blockSignals(true);
+    m_bankAngleSpin->blockSignals(true);
+
+    m_bankUCoordSpin->setValue(point.u);
+    m_bankTargetSpeedSpin->setValue(point.targetSpeed);
+    m_bankUseAngleCheck->setChecked(point.useAngle != 0);
+    m_bankAngleSpin->setValue(point.angle);
+    m_bankAngleSpin->setEnabled(point.useAngle != 0);
+
+    m_bankUCoordSpin->blockSignals(false);
+    m_bankTargetSpeedSpin->blockSignals(false);
+    m_bankUseAngleCheck->blockSignals(false);
+    m_bankAngleSpin->blockSignals(false);
+}
+
 void PropertiesPanel::setRoadEnabled(bool on) {
     m_speedGroup->setVisible(on);
     m_laneGroup->setVisible(on);
@@ -379,6 +462,15 @@ void PropertiesPanel::setVerticalCurveEnabled(bool on) {
     m_verticalVclSpin->setEnabled(on);
     m_verticalOffsetSpin->setEnabled(on);
     m_removeVerticalCurveButton->setEnabled(on);
+}
+
+void PropertiesPanel::setBankAngleEnabled(bool on) {
+    m_bankAngleGroup->setVisible(on);
+    m_bankUCoordSpin->setEnabled(on);
+    m_bankTargetSpeedSpin->setEnabled(on);
+    m_bankUseAngleCheck->setEnabled(on);
+    m_bankAngleSpin->setEnabled(on && m_bankUseAngleCheck->isChecked());
+    m_removeBankAngleButton->setEnabled(on);
 }
 
 void PropertiesPanel::applyChanges() {
@@ -420,9 +512,26 @@ void PropertiesPanel::applyVerticalCurveChanges() {
         static_cast<float>(m_verticalOffsetSpin->value()));
 }
 
+void PropertiesPanel::applyBankAngleChanges() {
+    if (!m_net || m_roadIdx < 0 || m_bankAngleIdx < 0) return;
+    m_bankAngleSpin->setEnabled(m_bankUseAngleCheck->isChecked());
+    emit selectedBankAngleModified(
+        m_roadIdx,
+        m_bankAngleIdx,
+        static_cast<float>(m_bankUCoordSpin->value()),
+        static_cast<float>(m_bankTargetSpeedSpin->value()),
+        m_bankUseAngleCheck->isChecked(),
+        static_cast<float>(m_bankAngleSpin->value()));
+}
+
 void PropertiesPanel::removeVerticalCurve() {
     if (!m_net || m_roadIdx < 0 || m_verticalCurveIdx < 0) return;
     emit removeSelectedVerticalCurveRequested(m_roadIdx, m_verticalCurveIdx);
+}
+
+void PropertiesPanel::removeBankAngle() {
+    if (!m_net || m_roadIdx < 0 || m_bankAngleIdx < 0) return;
+    emit removeSelectedBankAngleRequested(m_roadIdx, m_bankAngleIdx);
 }
 
 void PropertiesPanel::addSocket() {

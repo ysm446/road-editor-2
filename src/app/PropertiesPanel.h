@@ -43,22 +43,27 @@ public slots:
 private slots:
     void applyChanges();
     void applyVerticalCurveChanges();
+    void applyBankAngleChanges();
     void applySocketChanges();
     void removeVerticalCurve();
+    void removeBankAngle();
     void addSocket();
     void removeSocket();
 
 private:
     void setRoadEnabled(bool on);
     void setVerticalCurveEnabled(bool on);
+    void setBankAngleEnabled(bool on);
     void setSocketEnabled(bool on);
     void populate(const Road& road);
     void populateVerticalCurve(const Road& road, int verticalCurveIdx);
+    void populateBankAngle(const Road& road, int bankAngleIdx);
     void populateSocket(const Intersection& ix, int socketIdx);
 
     const RoadNetwork* m_net     = nullptr;
     int                m_roadIdx = -1;
     int                m_verticalCurveIdx = -1;
+    int                m_bankAngleIdx = -1;
     int                m_intersectionIdx = -1;
     int                m_socketIdx = -1;
 
@@ -86,6 +91,12 @@ private:
     QDoubleSpinBox* m_verticalVclSpin;
     QDoubleSpinBox* m_verticalOffsetSpin;
     QPushButton*    m_removeVerticalCurveButton;
+    QGroupBox*      m_bankAngleGroup;
+    QDoubleSpinBox* m_bankUCoordSpin;
+    QDoubleSpinBox* m_bankTargetSpeedSpin;
+    QCheckBox*      m_bankUseAngleCheck;
+    QDoubleSpinBox* m_bankAngleSpin;
+    QPushButton*    m_removeBankAngleButton;
     QGroupBox*      m_socketGroup;
     QLineEdit*      m_socketNameEdit;
     QDoubleSpinBox* m_socketYawSpin;
@@ -97,6 +108,8 @@ signals:
     void roadModified(int roadIdx, RoadProperties props);
     void selectedVerticalCurveModified(int roadIdx, int curveIdx, float u, float vcl, float offset);
     void removeSelectedVerticalCurveRequested(int roadIdx, int curveIdx);
+    void selectedBankAngleModified(int roadIdx, int curveIdx, float u, float targetSpeed, bool useAngle, float angle);
+    void removeSelectedBankAngleRequested(int roadIdx, int curveIdx);
     void selectedSocketModified(const QString& name, float yaw, bool enabled);
     void addSocketRequested();
     void removeSocketRequested();

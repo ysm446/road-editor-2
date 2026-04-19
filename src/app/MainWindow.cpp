@@ -54,6 +54,10 @@ MainWindow::MainWindow(QWidget* parent)
             m_viewport,   &Viewport3D::applySelectedVerticalCurveProperties);
     connect(m_properties, &PropertiesPanel::removeSelectedVerticalCurveRequested,
             m_viewport,   &Viewport3D::removeSelectedVerticalCurve);
+    connect(m_properties, &PropertiesPanel::selectedBankAngleModified,
+            m_viewport,   &Viewport3D::applySelectedBankAngleProperties);
+    connect(m_properties, &PropertiesPanel::removeSelectedBankAngleRequested,
+            m_viewport,   &Viewport3D::removeSelectedBankAngle);
     connect(m_properties, &PropertiesPanel::selectedSocketModified,
             m_viewport,   &Viewport3D::applySelectedSocketProperties);
     connect(m_properties, &PropertiesPanel::addSocketRequested,
@@ -122,14 +126,45 @@ void MainWindow::setupToolBar() {
     m_verticalModeAct->setShortcut(Qt::Key_V);
     group->addAction(m_verticalModeAct);
 
+    m_bankModeAct = tb->addAction("Bank");
+    m_bankModeAct->setCheckable(true);
+    m_bankModeAct->setToolTip("Edit bank angle points  [B]");
+    m_bankModeAct->setShortcut(Qt::Key_B);
+    group->addAction(m_bankModeAct);
+
+    tb->addSeparator();
+    m_createRoadAct = tb->addAction("Create Road");
+    m_createRoadAct->setToolTip("Create a new road in Edit mode  [R]");
+    m_createRoadAct->setShortcut(Qt::Key_R);
+
+    m_createIntersectionAct = tb->addAction("Create Intersection");
+    m_createIntersectionAct->setToolTip("Create a new intersection in Edit mode  [I]");
+    m_createIntersectionAct->setShortcut(Qt::Key_I);
+
     connect(m_selectModeAct, &QAction::triggered, this, [this]{
         m_viewport->setToolMode(ToolMode::Select);
     });
     connect(m_editModeAct, &QAction::triggered, this, [this]{
         m_viewport->setToolMode(ToolMode::Edit);
+        m_viewport->setEditSubTool(EditSubTool::None);
     });
     connect(m_verticalModeAct, &QAction::triggered, this, [this]{
         m_viewport->setToolMode(ToolMode::VerticalCurve);
+        m_viewport->setEditSubTool(EditSubTool::None);
+    });
+    connect(m_bankModeAct, &QAction::triggered, this, [this]{
+        m_viewport->setToolMode(ToolMode::BankAngle);
+        m_viewport->setEditSubTool(EditSubTool::None);
+    });
+    connect(m_createRoadAct, &QAction::triggered, this, [this]{
+        m_editModeAct->setChecked(true);
+        m_viewport->setToolMode(ToolMode::Edit);
+        m_viewport->setEditSubTool(EditSubTool::CreateRoad);
+    });
+    connect(m_createIntersectionAct, &QAction::triggered, this, [this]{
+        m_editModeAct->setChecked(true);
+        m_viewport->setToolMode(ToolMode::Edit);
+        m_viewport->setEditSubTool(EditSubTool::CreateIntersection);
     });
 
 }

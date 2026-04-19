@@ -7,7 +7,8 @@
 #include <vector>
 #include "../model/RoadNetwork.h"
 
-enum class ToolMode { Select, Edit, VerticalCurve };
+enum class ToolMode { Select, Edit, VerticalCurve, BankAngle };
+enum class EditSubTool { None, CreateRoad, CreateIntersection };
 
 struct SelectedPoint {
     int roadIdx  = -1;
@@ -22,12 +23,14 @@ struct Selection {
     int roadIdx         = -1;
     int pointIdx        = -1;
     int verticalCurveIdx = -1;
+    int bankAngleIdx    = -1;
     int intersectionIdx = -1;
     int socketIdx       = -1;
     std::vector<SelectedPoint> points;
 
     bool valid() const           { return !points.empty(); }
     bool hasVerticalCurve() const { return roadIdx >= 0 && verticalCurveIdx >= 0; }
+    bool hasBankAngle() const    { return roadIdx >= 0 && bankAngleIdx >= 0; }
     bool hasIntersection() const { return intersectionIdx >= 0; }
     bool hasSocket() const       { return intersectionIdx >= 0 && socketIdx >= 0; }
     bool containsPoint(int selRoadIdx, int selPointIdx) const {
@@ -40,6 +43,7 @@ struct Selection {
         roadIdx = selRoadIdx;
         pointIdx = selPointIdx;
         verticalCurveIdx = -1;
+        bankAngleIdx = -1;
         intersectionIdx = -1;
         socketIdx = -1;
     }
@@ -49,6 +53,17 @@ struct Selection {
         roadIdx = selRoadIdx;
         pointIdx = -1;
         verticalCurveIdx = selVerticalCurveIdx;
+        bankAngleIdx = -1;
+        intersectionIdx = -1;
+        socketIdx = -1;
+    }
+
+    void setBankAngle(int selRoadIdx, int selBankAngleIdx) {
+        points.clear();
+        roadIdx = selRoadIdx;
+        pointIdx = -1;
+        verticalCurveIdx = -1;
+        bankAngleIdx = selBankAngleIdx;
         intersectionIdx = -1;
         socketIdx = -1;
     }
@@ -56,6 +71,7 @@ struct Selection {
     void setPoints(std::vector<SelectedPoint> newPoints) {
         points = std::move(newPoints);
         verticalCurveIdx = -1;
+        bankAngleIdx = -1;
         intersectionIdx = -1;
         socketIdx = -1;
         if (!points.empty()) {
@@ -72,12 +88,13 @@ struct Selection {
         roadIdx = -1;
         pointIdx = -1;
         verticalCurveIdx = -1;
+        bankAngleIdx = -1;
         intersectionIdx = selIntersectionIdx;
         socketIdx = selSocketIdx;
     }
 
     void clear() {
-        roadIdx = pointIdx = verticalCurveIdx = intersectionIdx = socketIdx = -1;
+        roadIdx = pointIdx = verticalCurveIdx = bankAngleIdx = intersectionIdx = socketIdx = -1;
         points.clear();
     }
 };
@@ -86,6 +103,7 @@ class EditorState {
 public:
     Selection sel;
     ToolMode  mode = ToolMode::Edit;
+    EditSubTool editSubTool = EditSubTool::None;
 
     void pushUndo(const RoadNetwork& net);
     bool undo(RoadNetwork& net);
@@ -99,4 +117,5 @@ private:
 };
 
 Q_DECLARE_METATYPE(ToolMode)
+Q_DECLARE_METATYPE(EditSubTool)
 Q_DECLARE_METATYPE(Selection)

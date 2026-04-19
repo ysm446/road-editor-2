@@ -132,10 +132,10 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
             r.points.push_back(cp);
         }
 
-        if (!r.startIntersectionId.empty() && r.startLink.intersectionId.empty())
-            r.startLink.intersectionId = r.startIntersectionId;
-        if (!r.endIntersectionId.empty() && r.endLink.intersectionId.empty())
-            r.endLink.intersectionId = r.endIntersectionId;
+        if (!r.startLink.connected())
+            r.startIntersectionId.clear();
+        if (!r.endLink.connected())
+            r.endIntersectionId.clear();
 
         net.roads.push_back(std::move(r));
     }

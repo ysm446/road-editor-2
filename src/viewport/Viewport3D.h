@@ -62,6 +62,8 @@ private:
     bool pickControlPoint(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
                           int& outRoadIdx, int& outPointIdx);
     bool pickSocket(const QPoint& screenPos, int& outIntersectionIdx, int& outSocketIdx) const;
+    bool pickSocket(const QPoint& screenPos, int& outIntersectionIdx, int& outSocketIdx,
+                    float pickRadiusPx) const;
     int  pickRoad(const QPoint& screenPos) const;
     int  pickIntersection(const QPoint& screenPos) const;
     glm::vec3 rayHitY(const glm::vec3& origin, const glm::vec3& dir, float y) const;
@@ -74,7 +76,9 @@ private:
     std::vector<SelectedPoint> pickControlPointsInRect(const QRect& rect) const;
     bool endpointHasIntersectionLink(int roadIdx, int pointIdx) const;
     void detachEndpointFromIntersection(int roadIdx, int pointIdx);
+    bool isEndpointControlPoint(int roadIdx, int pointIdx) const;
     bool canConnectEndpointToSelectedSocket(int roadIdx, int pointIdx) const;
+    void connectEndpointToSocket(int roadIdx, int pointIdx, int intersectionIdx, int socketIdx);
     void connectEndpointToSelectedSocket(int roadIdx, int pointIdx);
     void syncLinkedEndpointsForIntersection(int intersectionIdx);
     void syncSelectionVisuals();
@@ -111,6 +115,14 @@ private:
     int       m_socketDragIntersectionIdx = -1;
     int       m_socketDragSocketIdx = -1;
     glm::vec3 m_socketDragOrigLocalPos = {0, 0, 0};
+    bool      m_endpointConnectPending = false;
+    bool      m_endpointConnectDragging = false;
+    SelectedPoint m_endpointConnectPoint;
+    QPoint    m_endpointConnectCurrentPos;
+    int       m_endpointConnectHoverIntersectionIdx = -1;
+    int       m_endpointConnectHoverSocketIdx = -1;
+    int       m_socketHoverIntersectionIdx = -1;
+    int       m_socketHoverSocketIdx = -1;
 
     // Box selection state
     bool      m_boxSelectPending = false;

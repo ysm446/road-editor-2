@@ -115,8 +115,8 @@ void IntersectionMeshGen::generate(
     int roadIdx = 0;
 
     for (const auto& road : net.roads) {
-        bool atStart = road.startIntersectionId == ix.id;
-        bool atEnd   = road.endIntersectionId   == ix.id;
+        bool atStart = road.startLink.connected() && road.startLink.intersectionId == ix.id;
+        bool atEnd   = road.endLink.connected()   && road.endLink.intersectionId == ix.id;
         if (!atStart && !atEnd) continue;
         if (road.points.size() < 2 || road.active == 0) continue;
 

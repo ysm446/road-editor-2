@@ -7,7 +7,7 @@ void RoadMeshGen::generate(const Road&                 road,
                             std::vector<Mesh::Vertex>& outVerts,
                             std::vector<uint32_t>&     outIndices,
                             int                        /*subdiv*/,
-                            const RoadNetwork*         net)
+                            const RoadNetwork*         /*net*/)
 {
     const auto& pts = road.points;
     if (pts.size() < 2 || road.active == 0) return;
@@ -18,37 +18,6 @@ void RoadMeshGen::generate(const Road&                 road,
         ClothoidGen::buildCenterline(pts, sampleInterval, road.equalMidpoint);
 
     if (worldSamples.size() < 2) return;
-
-    // --- 1b. Trim centerline endpoints at intersections ---
-    if (net) {
-        // Helper: trim front of worldSamples within entryDist of its first point
-        auto trimFront = [&](float dist) {
-            glm::vec3 origin = worldSamples.front();
-            size_t cut = 0;
-            for (size_t i = 1; i < worldSamples.size(); ++i) {
-                if (glm::distance(worldSamples[i], origin) >= dist) { cut = i; break; }
-            }
-            if (cut > 0)
-                worldSamples.erase(worldSamples.begin(), worldSamples.begin() + cut);
-        };
-        auto trimBack = [&](float dist) {
-            glm::vec3 origin = worldSamples.back();
-            size_t cut = worldSamples.size() - 1;
-            for (int i = (int)worldSamples.size() - 2; i >= 0; --i) {
-                if (glm::distance(worldSamples[i], origin) >= dist) { cut = (size_t)i; break; }
-            }
-            worldSamples.erase(worldSamples.begin() + cut + 1, worldSamples.end());
-        };
-
-        if (!road.startIntersectionId.empty()) {
-            const Intersection* ix = net->findIntersection(road.startIntersectionId);
-            if (ix && ix->entryDist > 0.0f) trimFront(ix->entryDist);
-        }
-        if (!road.endIntersectionId.empty()) {
-            const Intersection* ix = net->findIntersection(road.endIntersectionId);
-            if (ix && ix->entryDist > 0.0f) trimBack(ix->entryDist);
-        }
-    }
 
     if (worldSamples.size() < 2) return;
 

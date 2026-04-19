@@ -71,6 +71,7 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
             road.points, road.segmentLength, road.equalMidpoint);
         auto curve = VerticalCurveGen::applyDetailed(road, baseCurve, road.segmentLength);
         auto bankAngles = BankAngleGen::sampleAnglesRadians(road, curve);
+        auto frames = BankAngleGen::sampleFrames(curve, bankAngles);
         for (size_t i = 0; i + 1 < curve.size(); ++i) {
             glm::vec3 color = kindColor(curve[i]);
             if (m_bankAnglePreviewColors && i < bankAngles.size())
@@ -97,11 +98,9 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
             };
 
             auto pointFor = [&](int idx, float lateral) -> glm::vec3 {
-                glm::vec3 t = tangentAt(idx);
-                glm::vec3 b = glm::cross(glm::vec3(0, 1, 0), t);
-                if (glm::length(b) <= 1e-6f) b = glm::vec3(1, 0, 0);
-                else b = glm::normalize(b);
-                return curve[idx].pos + b * lateral;
+                if (idx < 0 || idx >= (int)frames.size())
+                    return curve[std::clamp(idx, 0, (int)curve.size() - 1)].pos;
+                return curve[idx].pos + frames[idx].right * lateral;
             };
 
             auto emitLine = [&](auto offsetFn, const glm::vec3& color) {

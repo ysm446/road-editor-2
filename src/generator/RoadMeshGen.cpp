@@ -1,5 +1,6 @@
 #include "RoadMeshGen.h"
 #include "ClothoidGen.h"
+#include "BankAngleGen.h"
 #include "LaneSectionGen.h"
 #include "VerticalCurveGen.h"
 #include <glm/gtc/constants.hpp>
@@ -16,61 +17,48 @@ void RoadMeshGen::generate(const Road&                 road,
 
     // --- 1. Build smooth centerline using clothoid curves ---
     const float sampleInterval = std::max(road.segmentLength, 0.01f);
-    std::vector<glm::vec3> worldSamples =
-        ClothoidGen::buildAndResample(pts, sampleInterval, road.equalMidpoint);
-    worldSamples = VerticalCurveGen::apply(road, worldSamples, sampleInterval);
+    auto baseCurve = ClothoidGen::buildCenterlineDetailedResampled(
+        pts, sampleInterval, road.equalMidpoint);
+    auto curve = VerticalCurveGen::applyDetailed(road, baseCurve, sampleInterval);
+    auto bankAngles = BankAngleGen::sampleAnglesRadians(road, curve);
+    auto frames = BankAngleGen::sampleFrames(curve, bankAngles);
+
+    std::vector<glm::vec3> worldSamples;
+    worldSamples.reserve(curve.size());
+    for (const auto& pt : curve)
+        worldSamples.push_back(pt.pos);
 
     if (worldSamples.size() < 2) return;
-
-    // Convert to GL space (flip X: world left-handed → GL right-handed)
-    std::vector<glm::vec3> samples;
-    samples.reserve(worldSamples.size());
-    for (const auto& p : worldSamples)
-        samples.push_back(toGL(p));
-
-    const int N = static_cast<int>(samples.size());
-
-    // --- 2. Tangents (central difference, clamped at ends) ---
-    std::vector<glm::vec3> tangents(N);
-    for (int i = 0; i < N; ++i) {
-        glm::vec3 t;
-        if      (i == 0)   t = samples[1] - samples[0];
-        else if (i == N-1) t = samples[N-1] - samples[N-2];
-        else               t = samples[i+1] - samples[i-1];
-        float len = glm::length(t);
-        tangents[i] = (len > 1e-6f) ? t / len : glm::vec3(0, 0, 1);
-    }
+    const int N = static_cast<int>(worldSamples.size());
 
     // --- 3. Vertices: two per sample (left edge, right edge) ---
     const uint32_t base = static_cast<uint32_t>(outVerts.size());
-    const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
     float cumDist = 0.0f;
     const float totalDist = [&]() {
         float v = 0.0f;
         for (int i = 1; i < N; ++i)
-            v += glm::length(samples[i] - samples[i - 1]);
+            v += glm::length(worldSamples[i] - worldSamples[i - 1]);
         return std::max(v, 1e-6f);
     }();
 
     for (int i = 0; i < N; ++i) {
-        if (i > 0) cumDist += glm::length(samples[i] - samples[i-1]);
+        if (i > 0) cumDist += glm::length(worldSamples[i] - worldSamples[i-1]);
 
-        glm::vec3 t = tangents[i];
-        glm::vec3 c = glm::cross(worldUp, t);
-        glm::vec3 b = (glm::length(c) > 1e-6f) ? glm::normalize(c) : glm::vec3(1, 0, 0);
-        glm::vec3 n = glm::normalize(glm::cross(t, b));
+        const CurveFrame& frame = frames[std::min<int>(i, (int)frames.size() - 1)];
+        glm::vec3 right = frame.right;
+        glm::vec3 up = frame.up;
 
         const float u = cumDist / totalDist;
         const EvaluatedLaneSection lane = LaneSectionGen::evaluateAtU(road, u);
         float leftW = lane.widthLeft2 + lane.widthLeft1 + lane.widthCenter * 0.5f;
         float rightW = lane.widthRight1 + lane.widthRight2 + lane.widthCenter * 0.5f;
         if (leftW < 1e-4f && rightW < 1e-4f) leftW = rightW = 0.1f;
-        glm::vec3 shiftedCenter = samples[i] - b * lane.offsetCenter;
+        glm::vec3 shiftedCenter = worldSamples[i] - right * lane.offsetCenter;
 
         float vCoord = cumDist / (leftW + rightW);
 
-        outVerts.push_back({ shiftedCenter - b * leftW,  n, {0.0f, vCoord} });
-        outVerts.push_back({ shiftedCenter + b * rightW, n, {1.0f, vCoord} });
+        outVerts.push_back({ toGL(shiftedCenter - right * leftW),  toGL(up), {0.0f, vCoord} });
+        outVerts.push_back({ toGL(shiftedCenter + right * rightW), toGL(up), {1.0f, vCoord} });
     }
 
     // --- 4. Indices: two CCW triangles per quad ---

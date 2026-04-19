@@ -54,12 +54,17 @@ protected:
 private:
     // Ray and pick helpers
     glm::vec3 screenToRay(const QPoint& p) const;
+    glm::vec3 screenToGlAtDepth(const QPoint& p, float ndcZ) const;
     bool pickControlPoint(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
                           int& outRoadIdx, int& outPointIdx);
     int  pickRoad(const QPoint& screenPos) const;
     int  pickIntersection(const QPoint& screenPos) const;
     glm::vec3 rayHitY(const glm::vec3& origin, const glm::vec3& dir, float y) const;
     void setupIxDragEndpoints(int ixIdx);
+    glm::vec3 cameraForwardWorld() const;
+    glm::vec3 cameraForwardGl() const;
+    glm::vec3 cameraGlPos() const;
+    glm::vec3 toGlVector(const glm::vec3& v) const;
     glm::vec3 selectionPivotGlPos() const;
     std::vector<SelectedPoint> pickControlPointsInRect(const QRect& rect) const;
     void syncSelectionVisuals();
@@ -106,9 +111,14 @@ private:
     // Gizmo drag state
     TransformGizmo::Axis m_gizmoHover           = TransformGizmo::Axis::None;
     TransformGizmo::Axis m_gizmoDragAxis        = TransformGizmo::Axis::None;
+    bool                 m_skipNextScreenDragMove = false;
     float                m_gizmoDragT0          = 0.0f;
+    float                m_gizmoDragScreenDepth = 0.0f;
     glm::vec3            m_gizmoDragOrigGlPos   = {0.0f, 0.0f, 0.0f};
+    glm::vec3            m_gizmoDragLastGlPos   = {0.0f, 0.0f, 0.0f};
     glm::vec3            m_gizmoDragScreenHit0  = {0.0f, 0.0f, 0.0f};
+    glm::vec3            m_gizmoDragOrigWorldPos = {0.0f, 0.0f, 0.0f};
+    glm::vec3            m_gizmoDragLastWorldHit = {0.0f, 0.0f, 0.0f};
 
     // Intersection drag state: per-endpoint offset from intersection center (world space)
     struct IxDragEndpoint { int roadIdx, ptIdx; glm::vec3 origOffset; };

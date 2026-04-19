@@ -111,7 +111,7 @@ void Viewport3D::paintGL() {
         const bool showGizmo = m_editor.sel.valid() || m_editor.sel.hasIntersection();
         if (showGizmo) {
             glm::vec3 glPos = selectionPivotGlPos();
-            m_transformGizmo.rebuild(this, glPos, m_camera.position(), m_gizmoHover);
+            m_transformGizmo.rebuild(this, glPos, cameraGlPos(), m_gizmoHover);
             glDisable(GL_DEPTH_TEST);
             m_transformGizmo.draw(this, m_lineShader, vp);
             glEnable(GL_DEPTH_TEST);
@@ -219,9 +219,39 @@ glm::vec3 Viewport3D::screenToRay(const QPoint& p) const {
     return glm::normalize(farP - nearP);
 }
 
+glm::vec3 Viewport3D::screenToGlAtDepth(const QPoint& p, float ndcZ) const {
+    float ndcX = (2.0f * p.x()) / width() - 1.0f;
+    float ndcY = -(2.0f * p.y()) / height() + 1.0f;
+
+    glm::mat4 proj = m_camera.projMatrix(m_aspect);
+    glm::mat4 view = m_camera.viewMatrix();
+    glm::mat4 invVP = glm::inverse(proj * view);
+
+    glm::vec4 world4 = invVP * glm::vec4(ndcX, ndcY, ndcZ, 1.0f);
+    return glm::vec3(world4) / world4.w;
+}
+
 glm::vec3 Viewport3D::rayHitY(const glm::vec3& origin, const glm::vec3& dir, float y) const {
     float t = (std::abs(dir.y) > 1e-6f) ? (y - origin.y) / dir.y : 0.0f;
     return origin + dir * t;
+}
+
+glm::vec3 Viewport3D::cameraForwardWorld() const {
+    const QPoint center(width() / 2, height() / 2);
+    return screenToRay(center);
+}
+
+glm::vec3 Viewport3D::cameraForwardGl() const {
+    return toGlVector(cameraForwardWorld());
+}
+
+glm::vec3 Viewport3D::cameraGlPos() const {
+    glm::vec3 camPos = m_camera.position();
+    return {-camPos.x, camPos.y, camPos.z};
+}
+
+glm::vec3 Viewport3D::toGlVector(const glm::vec3& v) const {
+    return {-v.x, v.y, v.z};
 }
 
 glm::vec3 Viewport3D::selectionPivotGlPos() const {
@@ -471,6 +501,8 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
 
     glm::vec3 rayDir = screenToRay(e->pos());
     glm::vec3 rayOri = m_camera.position();
+    glm::vec3 rayDirGl = toGlVector(rayDir);
+    glm::vec3 rayOriGl = cameraGlPos();
 
     if (m_editor.mode == ToolMode::Select) {
         int ri = pickRoad(e->pos());
@@ -491,24 +523,22 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
         glm::vec3 glPos = selectionPivotGlPos();
         glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
         auto axis = m_transformGizmo.hitTest(
-            e->pos(), glPos, m_camera.position(), vpMat, width(), height());
+            e->pos(), glPos, cameraGlPos(), vpMat, width(), height());
 
         if (axis != TransformGizmo::Axis::None) {
             m_gizmoDragAxis      = axis;
             m_gizmoDragOrigGlPos = glPos;
+            m_gizmoDragLastGlPos = glPos;
+            m_skipNextScreenDragMove = (axis == TransformGizmo::Axis::Screen);
 
             if (axis == TransformGizmo::Axis::Screen) {
-                glm::vec3 planeNorm = glm::normalize(m_camera.position() - glPos);
-                float denom = glm::dot(rayDir, planeNorm);
-                if (std::abs(denom) > 1e-6f) {
-                    float t = glm::dot(glPos - rayOri, planeNorm) / denom;
-                    m_gizmoDragScreenHit0 = rayOri + t * rayDir;
-                } else {
-                    m_gizmoDragScreenHit0 = glPos;
-                }
+                glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+                glm::vec4 clip = vpMat * glm::vec4(glPos, 1.0f);
+                m_gizmoDragScreenDepth = (clip.w != 0.0f) ? (clip.z / clip.w) : 0.0f;
+                m_gizmoDragLastGlPos = screenToGlAtDepth(e->pos(), m_gizmoDragScreenDepth);
             } else {
                 m_gizmoDragT0 = TransformGizmo::axisTParam(
-                    rayOri, rayDir, glPos, TransformGizmo::axisDir(axis));
+                    rayOriGl, rayDirGl, glPos, TransformGizmo::axisDir(axis));
             }
 
             if (m_editor.sel.valid())
@@ -605,36 +635,54 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
     if (m_dragging && !(e->modifiers() & Qt::AltModifier)) {
         glm::vec3 rayDir = screenToRay(e->pos());
         glm::vec3 rayOri = m_camera.position();
+        glm::vec3 rayDirGl = toGlVector(rayDir);
+        glm::vec3 rayOriGl = cameraGlPos();
+        auto resolveScreenGlHit = [&]() -> std::pair<glm::vec3, bool> {
+            Q_UNUSED(rayOri);
+            Q_UNUSED(rayDirGl);
+            Q_UNUSED(rayOriGl);
+            return {screenToGlAtDepth(e->pos(), m_gizmoDragScreenDepth), true};
+        };
+
+        if (m_gizmoDragAxis == TransformGizmo::Axis::Screen && m_skipNextScreenDragMove) {
+            auto [glHit, ok] = resolveScreenGlHit();
+            if (ok) m_gizmoDragLastGlPos = glHit;
+            m_skipNextScreenDragMove = false;
+            return;
+        }
 
         auto resolveGlPos = [&]() -> glm::vec3 {
-            if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
-                glm::vec3 planeNorm = glm::normalize(m_camera.position() - m_gizmoDragOrigGlPos);
-                float denom = glm::dot(rayDir, planeNorm);
-                if (std::abs(denom) > 1e-6f) {
-                    float t = glm::dot(m_gizmoDragOrigGlPos - rayOri, planeNorm) / denom;
-                    return m_gizmoDragOrigGlPos + (rayOri + t * rayDir - m_gizmoDragScreenHit0);
-                }
-                return m_gizmoDragOrigGlPos;
-            }
             if (m_gizmoDragAxis != TransformGizmo::Axis::None) {
                 glm::vec3 axDir = TransformGizmo::axisDir(m_gizmoDragAxis);
-                float t = TransformGizmo::axisTParam(rayOri, rayDir, m_gizmoDragOrigGlPos, axDir);
+                float t = TransformGizmo::axisTParam(rayOriGl, rayDirGl, m_gizmoDragOrigGlPos, axDir);
                 return m_gizmoDragOrigGlPos + (t - m_gizmoDragT0) * axDir;
             }
             return rayHitY(rayOri, rayDir, m_dragPlaneY.y);
         };
 
         if (m_editor.sel.valid()) {
-            glm::vec3 newPivotGlPos = resolveGlPos();
-            glm::vec3 deltaWorld = {
-                -(newPivotGlPos.x - m_gizmoDragOrigGlPos.x),
-                newPivotGlPos.y - m_gizmoDragOrigGlPos.y,
-                newPivotGlPos.z - m_gizmoDragOrigGlPos.z
-            };
+            if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
+                auto [glHit, ok] = resolveScreenGlHit();
+                if (!ok) return;
+                glm::vec3 deltaGl = glHit - m_gizmoDragLastGlPos;
+                glm::vec3 deltaWorld = {-deltaGl.x, deltaGl.y, deltaGl.z};
+                for (const auto& selPt : m_editor.sel.points) {
+                    auto& pos = m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos;
+                    pos += deltaWorld;
+                }
+                m_gizmoDragLastGlPos = glHit;
+            } else {
+                glm::vec3 newPivotGlPos = resolveGlPos();
+                glm::vec3 deltaWorld = {
+                    -(newPivotGlPos.x - m_gizmoDragOrigGlPos.x),
+                    newPivotGlPos.y - m_gizmoDragOrigGlPos.y,
+                    newPivotGlPos.z - m_gizmoDragOrigGlPos.z
+                };
 
-            for (const auto& origin : m_pointDragOrigins) {
-                auto& pos = m_network.roads[origin.point.roadIdx].points[origin.point.pointIdx].pos;
-                pos = origin.pos + deltaWorld;
+                for (const auto& origin : m_pointDragOrigins) {
+                    auto& pos = m_network.roads[origin.point.roadIdx].points[origin.point.pointIdx].pos;
+                    pos = origin.pos + deltaWorld;
+                }
             }
 
             makeCurrent();
@@ -645,11 +693,22 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
         } else if (m_editor.sel.hasIntersection()) {
             int selIxIdx = m_editor.sel.intersectionIdx;
             if (selIxIdx >= 0 && selIxIdx < (int)m_network.intersections.size()) {
-                glm::vec3 newGlPos = resolveGlPos();
-                glm::vec3 newWorld = {-newGlPos.x, newGlPos.y, newGlPos.z};
-                m_network.intersections[selIxIdx].pos = newWorld;
-                for (const auto& ep : m_ixDragEndpoints)
-                    m_network.roads[ep.roadIdx].points[ep.ptIdx].pos = newWorld + ep.origOffset;
+                if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
+                    auto [glHit, ok] = resolveScreenGlHit();
+                    if (!ok) return;
+                    glm::vec3 deltaGl = glHit - m_gizmoDragLastGlPos;
+                    glm::vec3 deltaWorld = {-deltaGl.x, deltaGl.y, deltaGl.z};
+                    m_network.intersections[selIxIdx].pos += deltaWorld;
+                    for (const auto& ep : m_ixDragEndpoints)
+                        m_network.roads[ep.roadIdx].points[ep.ptIdx].pos += deltaWorld;
+                    m_gizmoDragLastGlPos = glHit;
+                } else {
+                    glm::vec3 newGlPos = resolveGlPos();
+                    glm::vec3 newWorld = {-newGlPos.x, newGlPos.y, newGlPos.z};
+                    m_network.intersections[selIxIdx].pos = newWorld;
+                    for (const auto& ep : m_ixDragEndpoints)
+                        m_network.roads[ep.roadIdx].points[ep.ptIdx].pos = newWorld + ep.origOffset;
+                }
                 makeCurrent();
                 m_roadRenderer.rebuild(this, m_network);
                 syncSelectionVisuals();
@@ -665,7 +724,7 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
             glm::vec3 glPos = selectionPivotGlPos();
             glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
             auto newHover = m_transformGizmo.hitTest(
-                e->pos(), glPos, m_camera.position(), vpMat, width(), height());
+                e->pos(), glPos, cameraGlPos(), vpMat, width(), height());
             if (newHover != m_gizmoHover) {
                 m_gizmoHover = newHover;
                 update();
@@ -714,6 +773,7 @@ void Viewport3D::mouseReleaseEvent(QMouseEvent* e) {
         unsetCursor();
         m_dragging = false;
         m_gizmoDragAxis = TransformGizmo::Axis::None;
+        m_skipNextScreenDragMove = false;
         m_pointDragOrigins.clear();
     }
 

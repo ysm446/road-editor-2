@@ -119,25 +119,6 @@ void TransformGizmo::rebuild(QOpenGLFunctions_4_1_Core* f,
     if (!m_ready) return;
     float len = glm::distance(vertexGlPos, camGlPos) * kGizmoScale;
 
-    // Camera-facing plane directions for the center square:
-    // use camera-right (cross of cam-to-vertex and world-up) and world-up.
-    glm::vec3 camToVtx = glm::normalize(vertexGlPos - camGlPos);
-    glm::vec3 worldUp  = {0.0f, 1.0f, 0.0f};
-    glm::vec3 camRight = glm::normalize(glm::cross(camToVtx, worldUp));
-    glm::vec3 camUp    = glm::normalize(glm::cross(camRight, camToVtx));
-
-    float sq = len * 0.18f; // half-size of the center square
-
-    const glm::vec3 kColCenter   = {0.85f, 0.85f, 0.85f};
-    const glm::vec3 kColCenterHi = {1.00f, 1.00f, 0.50f};
-    const glm::vec3& cCol = (highlight == Axis::Screen) ? kColCenterHi : kColCenter;
-
-    glm::vec3 c  = vertexGlPos;
-    glm::vec3 tl = c - sq * camRight + sq * camUp;
-    glm::vec3 tr = c + sq * camRight + sq * camUp;
-    glm::vec3 br = c + sq * camRight - sq * camUp;
-    glm::vec3 bl = c - sq * camRight - sq * camUp;
-
     m_batch.begin();
     buildArrow(m_batch, vertexGlPos, axisDir(Axis::X), len,
                (highlight == Axis::X) ? kColXHi : kColX, Axis::X);
@@ -145,13 +126,6 @@ void TransformGizmo::rebuild(QOpenGLFunctions_4_1_Core* f,
                (highlight == Axis::Y) ? kColYHi : kColY, Axis::Y);
     buildArrow(m_batch, vertexGlPos, axisDir(Axis::Z), len,
                (highlight == Axis::Z) ? kColZHi : kColZ, Axis::Z);
-
-    // Center square handle (camera-facing)
-    m_batch.addLine(tl, tr, cCol);
-    m_batch.addLine(tr, br, cCol);
-    m_batch.addLine(br, bl, cCol);
-    m_batch.addLine(bl, tl, cCol);
-
     m_batch.upload(f);
 }
 
@@ -212,34 +186,13 @@ TransformGizmo::Axis TransformGizmo::hitTest(
         }
     }
 
-    // Center square: check if mouse is within the projected square area.
-    // Use a simple screen-space radius test around the vertex center.
-    float sq = len * 0.18f;
-    // Project the 4 corners and find screen-space bounding radius
+    // Center circle: fixed screen-space radius, lower priority than axes.
+    const float kCenterRadiusSq = 14.0f * 14.0f;
     auto [sc, okC] = project(vertexGlPos);
     if (okC) {
-        glm::vec3 camToVtx = glm::normalize(vertexGlPos - camGlPos);
-        glm::vec3 worldUp2 = {0.0f, 1.0f, 0.0f};
-        glm::vec3 camRight = glm::normalize(glm::cross(camToVtx, worldUp2));
-        glm::vec3 camUp2   = glm::normalize(glm::cross(camRight, camToVtx));
-
-        // Check all 4 corners — if mouse is inside the convex hull just use
-        // a radius test equal to the projected corner distance.
-        glm::vec3 corners[4] = {
-            vertexGlPos - sq * camRight + sq * camUp2,
-            vertexGlPos + sq * camRight + sq * camUp2,
-            vertexGlPos + sq * camRight - sq * camUp2,
-            vertexGlPos - sq * camRight - sq * camUp2,
-        };
-        float maxR = 0.0f;
-        for (const auto& corner : corners) {
-            auto [sp, ok] = project(corner);
-            if (ok) maxR = std::max(maxR, glm::length(sp - sc));
-        }
         glm::vec2 d = mp - sc;
         float distSq = glm::dot(d, d);
-        // Give center lower priority than axes (multiply threshold)
-        if (distSq < maxR * maxR && distSq < bestDist) {
+        if (distSq < kCenterRadiusSq && distSq < bestDist) {
             bestAxis = Axis::Screen;
         }
     }

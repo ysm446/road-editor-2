@@ -33,6 +33,8 @@ MainWindow::MainWindow(QWidget* parent)
     // Wire viewport signals to panels
     connect(m_viewport, &Viewport3D::selectionChanged,
             m_properties, &PropertiesPanel::onSelectionChanged);
+    connect(m_viewport, &Viewport3D::selectionStateChanged,
+            m_properties, &PropertiesPanel::onSelectionStateChanged);
     connect(m_viewport, &Viewport3D::selectionChanged,
             m_outliner,  &OutlinerPanel::onSelectionChanged);
     connect(m_viewport, &Viewport3D::networkChanged,
@@ -48,6 +50,12 @@ MainWindow::MainWindow(QWidget* parent)
     // Wire properties Apply → write back road values and rebuild mesh
     connect(m_properties, &PropertiesPanel::roadModified,
             m_viewport,   &Viewport3D::applyRoadProperties);
+    connect(m_properties, &PropertiesPanel::selectedSocketModified,
+            m_viewport,   &Viewport3D::applySelectedSocketProperties);
+    connect(m_properties, &PropertiesPanel::addSocketRequested,
+            m_viewport,   &Viewport3D::addSocketToSelectedIntersection);
+    connect(m_properties, &PropertiesPanel::removeSocketRequested,
+            m_viewport,   &Viewport3D::removeSelectedSocket);
 
     // Auto-load sample data
     QString sample = QStringLiteral(ROAD_EDITOR_SOURCE_DIR) + "/docs/road_data_format.json";

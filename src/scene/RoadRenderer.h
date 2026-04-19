@@ -34,10 +34,13 @@ private:
     bool m_showPoints  = true;
     LineBatch m_roads;       // centerlines (unselected)
     LineBatch m_nodes;       // intersection markers
+    LineBatch m_socketLines; // socket spokes
+    LineBatch m_socketPoints; // socket markers
     LineBatch m_allPoints;    // all control point dots (gray)
     LineBatch m_allCtrlLines; // control polygon for all roads (dim, Edit mode)
     LineBatch m_selBatch;     // selected control point (orange)
     LineBatch m_selRoad;      // selected road centerline highlight
+    LineBatch m_selSockets;   // selected intersection sockets
     Mesh      m_surfaceMesh;       // road surface quads
     Mesh      m_intersectionMesh; // intersection fill
 

@@ -9,6 +9,55 @@ static glm::vec3 readVec3(const json& j) {
     return {j[0].get<float>(), j[1].get<float>(), j[2].get<float>()};
 }
 
+static json writeVec3(const glm::vec3& v) {
+    return json::array({v.x, v.y, v.z});
+}
+
+static RoadEndpointLink readLink(const json& j) {
+    RoadEndpointLink link;
+    if (!j.is_object()) return link;
+    link.intersectionId = j.value("intersectionId", "");
+    link.socketId = j.value("socketId", "");
+    return link;
+}
+
+static json writeLink(const RoadEndpointLink& link) {
+    return {
+        {"intersectionId", link.intersectionId},
+        {"socketId", link.socketId}
+    };
+}
+
+static IntersectionSocket readSocket(const json& j) {
+    IntersectionSocket socket;
+    socket.id = j.value("id", "");
+    socket.name = j.value("name", "");
+    if (j.contains("localPos")) socket.localPos = readVec3(j["localPos"]);
+    socket.yaw = j.value("yaw", 0.0f);
+    socket.enabled = j.value("enabled", true);
+    return socket;
+}
+
+static json writeSocket(const IntersectionSocket& socket) {
+    return {
+        {"id", socket.id},
+        {"name", socket.name},
+        {"localPos", writeVec3(socket.localPos)},
+        {"yaw", socket.yaw},
+        {"enabled", socket.enabled}
+    };
+}
+
+static std::vector<IntersectionSocket> defaultSockets(float entryDist) {
+    const float radius = std::max(entryDist, 12.0f);
+    return {
+        {"s0", "East",  { radius, 0.0f, 0.0f}, 0.0f, true},
+        {"s1", "West",  {-radius, 0.0f, 0.0f}, 3.1415926f, true},
+        {"s2", "North", {0.0f, 0.0f,  radius}, 1.5707963f, true},
+        {"s3", "South", {0.0f, 0.0f, -radius}, -1.5707963f, true}
+    };
+}
+
 bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
     std::ifstream f(path.toStdString());
     if (!f.is_open()) {
@@ -43,6 +92,10 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
         n.type      = ji.value("type",      "intersection");
         n.entryDist = ji.value("entryDist", 8.0f);
         if (ji.contains("pos")) n.pos = readVec3(ji["pos"]);
+        for (const auto& js : ji.value("sockets", json::array()))
+            n.sockets.push_back(readSocket(js));
+        if (n.sockets.empty())
+            n.sockets = defaultSockets(n.entryDist);
         net.intersections.push_back(std::move(n));
     }
 
@@ -53,6 +106,8 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
         r.groupId                = jr.value("groupId",                "");
         r.startIntersectionId    = jr.value("startIntersectionId",    "");
         r.endIntersectionId      = jr.value("endIntersectionId",      "");
+        if (jr.contains("startLink")) r.startLink = readLink(jr["startLink"]);
+        if (jr.contains("endLink"))   r.endLink   = readLink(jr["endLink"]);
         r.defaultTargetSpeed     = jr.value("defaultTargetSpeed",     40.0f);
         r.defaultFriction        = jr.value("defaultFriction",        0.15f);
         r.useLaneLeft2           = jr.value("useLaneLeft2",           false);
@@ -77,6 +132,11 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
             r.points.push_back(cp);
         }
 
+        if (!r.startIntersectionId.empty() && r.startLink.intersectionId.empty())
+            r.startLink.intersectionId = r.startIntersectionId;
+        if (!r.endIntersectionId.empty() && r.endLink.intersectionId.empty())
+            r.endLink.intersectionId = r.endIntersectionId;
+
         net.roads.push_back(std::move(r));
     }
 
@@ -98,11 +158,15 @@ bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
 
     json jIntersections = json::array();
     for (const auto& n : net.intersections) {
-        jIntersections.push_back({
+        json jIntersection = {
             {"id", n.id}, {"name", n.name}, {"groupId", n.groupId},
             {"type", n.type}, {"entryDist", n.entryDist},
-            {"pos", {n.pos.x, n.pos.y, n.pos.z}}
-        });
+            {"pos", writeVec3(n.pos)},
+            {"sockets", json::array()}
+        };
+        for (const auto& socket : n.sockets)
+            jIntersection["sockets"].push_back(writeSocket(socket));
+        jIntersections.push_back(std::move(jIntersection));
     }
     doc["intersections"] = jIntersections;
 
@@ -112,6 +176,8 @@ bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
             {"id", r.id}, {"name", r.name}, {"groupId", r.groupId},
             {"startIntersectionId", r.startIntersectionId},
             {"endIntersectionId",   r.endIntersectionId},
+            {"startLink", writeLink(r.startLink)},
+            {"endLink",   writeLink(r.endLink)},
             {"defaultTargetSpeed",     r.defaultTargetSpeed},
             {"defaultFriction",        r.defaultFriction},
             {"useLaneLeft2",           r.useLaneLeft2},
@@ -133,7 +199,7 @@ bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
         json jPoints = json::array();
         for (const auto& cp : r.points) {
             jPoints.push_back({
-                {"pos", {cp.pos.x, cp.pos.y, cp.pos.z}},
+                {"pos", writeVec3(cp.pos)},
                 {"curvatureRadius",    cp.curvatureRadius},
                 {"useCurvatureRadius", cp.useCurvatureRadius}
             });

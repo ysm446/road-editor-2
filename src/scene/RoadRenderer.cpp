@@ -8,10 +8,13 @@
 void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
     m_roads.init(f);
     m_nodes.init(f);
+    m_socketLines.init(f);
+    m_socketPoints.init(f);
     m_allPoints.init(f);
     m_allCtrlLines.init(f);
     m_selBatch.init(f);
     m_selRoad.init(f);
+    m_selSockets.init(f);
     m_surfaceMesh.init(f);
     m_intersectionMesh.init(f);
     m_ready = true;
@@ -24,6 +27,8 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     const glm::vec3 kClothoid  = {1.0f, 0.55f, 0.15f};
     const glm::vec3 kArc       = {0.2f, 0.9f, 0.2f};
     const glm::vec3 kNode      = {0.35f, 0.90f, 0.45f};
+    const glm::vec3 kSocketLine = {0.55f, 0.65f, 0.90f};
+    const glm::vec3 kSocketPoint = {0.70f, 0.80f, 1.00f};
     const float     kCross     = 5.0f;
 
     auto kindColor = [&](SegKind k) -> const glm::vec3& {
@@ -51,6 +56,20 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
         m_nodes.addLine(p - glm::vec3(0, 0, kCross), p + glm::vec3(0, 0, kCross), kNode);
     }
     m_nodes.upload(f);
+
+    m_socketLines.begin();
+    m_socketPoints.begin();
+    for (const auto& n : net.intersections) {
+        glm::vec3 center = toGL(n.pos);
+        for (const auto& socket : n.sockets) {
+            if (!socket.enabled) continue;
+            glm::vec3 socketPos = toGL(n.pos + socket.localPos);
+            m_socketLines.addLine(center, socketPos, kSocketLine);
+            m_socketPoints.addPoint(socketPos, kSocketPoint);
+        }
+    }
+    m_socketLines.upload(f);
+    m_socketPoints.upload(f);
 
     const glm::vec3 kPtNormal = {0.75f, 0.75f, 0.75f};
     const glm::vec3 kCtrlLine = {0.45f, 0.45f, 0.45f};
@@ -87,6 +106,7 @@ void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
 
     const glm::vec3 kSelPt   = {1.0f, 0.55f, 0.0f};
     const glm::vec3 kSelRoad = {0.2f, 0.9f, 1.0f};
+    const glm::vec3 kSelSocket = {1.0f, 0.85f, 0.15f};
 
     m_selBatch.begin();
     for (const auto& pt : sel.points) {
@@ -111,6 +131,20 @@ void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
                               toGL(road.points[i + 1].pos), kSelRoad);
     }
     m_selRoad.upload(f);
+
+    m_selSockets.begin();
+    if (sel.hasIntersection() &&
+        sel.intersectionIdx >= 0 &&
+        sel.intersectionIdx < (int)net.intersections.size()) {
+        const auto& ix = net.intersections[sel.intersectionIdx];
+        for (int i = 0; i < (int)ix.sockets.size(); ++i) {
+            const auto& socket = ix.sockets[i];
+            if (!socket.enabled) continue;
+            if (sel.hasSocket() && sel.socketIdx != i) continue;
+            m_selSockets.addPoint(toGL(ix.pos + socket.localPos), kSelSocket);
+        }
+    }
+    m_selSockets.upload(f);
 }
 
 void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
@@ -155,6 +189,7 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
         m_allCtrlLines.draw(f, lineShader, vp);
     m_roads.draw(f, lineShader, vp);
     m_nodes.draw(f, lineShader, vp);
+    m_socketLines.draw(f, lineShader, vp);
 
     f->glEnable(GL_POLYGON_OFFSET_LINE);
     f->glPolygonOffset(-1.0f, -1.0f);
@@ -164,17 +199,22 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
     f->glEnable(GL_PROGRAM_POINT_SIZE);
     if (m_showPoints)
         m_allPoints.drawPoints(f, pointShader, vp, 10.0f);
+    m_socketPoints.drawPoints(f, pointShader, vp, 9.0f);
     m_selBatch.drawPoints(f, pointShader, vp, 14.0f);
+    m_selSockets.drawPoints(f, pointShader, vp, 15.0f);
     f->glDisable(GL_PROGRAM_POINT_SIZE);
 }
 
 void RoadRenderer::destroy(QOpenGLFunctions_4_1_Core* f) {
     m_roads.destroy(f);
     m_nodes.destroy(f);
+    m_socketLines.destroy(f);
+    m_socketPoints.destroy(f);
     m_allPoints.destroy(f);
     m_allCtrlLines.destroy(f);
     m_selBatch.destroy(f);
     m_selRoad.destroy(f);
+    m_selSockets.destroy(f);
     m_surfaceMesh.destroy(f);
     m_intersectionMesh.destroy(f);
     m_ready   = false;

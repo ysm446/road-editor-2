@@ -22,10 +22,12 @@ struct Selection {
     int roadIdx         = -1;
     int pointIdx        = -1;
     int intersectionIdx = -1;
+    int socketIdx       = -1;
     std::vector<SelectedPoint> points;
 
     bool valid() const           { return !points.empty(); }
     bool hasIntersection() const { return intersectionIdx >= 0; }
+    bool hasSocket() const       { return intersectionIdx >= 0 && socketIdx >= 0; }
     bool containsPoint(int selRoadIdx, int selPointIdx) const {
         return std::find(points.begin(), points.end(),
                          SelectedPoint{selRoadIdx, selPointIdx}) != points.end();
@@ -36,11 +38,13 @@ struct Selection {
         roadIdx = selRoadIdx;
         pointIdx = selPointIdx;
         intersectionIdx = -1;
+        socketIdx = -1;
     }
 
     void setPoints(std::vector<SelectedPoint> newPoints) {
         points = std::move(newPoints);
         intersectionIdx = -1;
+        socketIdx = -1;
         if (!points.empty()) {
             roadIdx = points.front().roadIdx;
             pointIdx = points.front().pointIdx;
@@ -50,8 +54,16 @@ struct Selection {
         }
     }
 
+    void setIntersection(int selIntersectionIdx, int selSocketIdx = -1) {
+        points.clear();
+        roadIdx = -1;
+        pointIdx = -1;
+        intersectionIdx = selIntersectionIdx;
+        socketIdx = selSocketIdx;
+    }
+
     void clear() {
-        roadIdx = pointIdx = intersectionIdx = -1;
+        roadIdx = pointIdx = intersectionIdx = socketIdx = -1;
         points.clear();
     }
 };
@@ -73,3 +85,4 @@ private:
 };
 
 Q_DECLARE_METATYPE(ToolMode)
+Q_DECLARE_METATYPE(Selection)

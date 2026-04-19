@@ -28,9 +28,32 @@ struct LaneSectionPoint {
     // Extended when lane section format is finalised
 };
 
+struct RoadEndpointLink {
+    std::string intersectionId;
+    std::string socketId;
+
+    bool connected() const {
+        return !intersectionId.empty() && !socketId.empty();
+    }
+
+    void clear() {
+        intersectionId.clear();
+        socketId.clear();
+    }
+};
+
+struct IntersectionSocket {
+    std::string id;
+    std::string name;
+    glm::vec3   localPos = {0.0f, 0.0f, 0.0f};
+    float       yaw      = 0.0f;
+    bool        enabled  = true;
+};
+
 struct Road {
     std::string id, name, groupId;
     std::string startIntersectionId, endIntersectionId;
+    RoadEndpointLink startLink, endLink;
 
     std::vector<ControlPoint>       points;
     std::vector<VerticalCurvePoint> verticalCurve;
@@ -62,6 +85,7 @@ struct Intersection {
     std::string id, name, groupId, type;
     glm::vec3   pos       = {0.0f, 0.0f, 0.0f};
     float       entryDist = 8.0f;
+    std::vector<IntersectionSocket> sockets;
 };
 
 struct Group {

@@ -6,6 +6,8 @@
 #include <QLabel>
 #include <QDoubleSpinBox>
 #include <QGroupBox>
+#include <QLineEdit>
+#include <QPushButton>
 
 static QDoubleSpinBox* makeWidthSpin(QWidget* parent) {
     auto* s = new QDoubleSpinBox(parent);
@@ -39,6 +41,7 @@ static void addLaneRow(QFormLayout* form, const QString& label,
 PropertiesPanel::PropertiesPanel(QWidget* parent)
     : QWidget(parent)
 {
+    setMinimumWidth(320);
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(6, 6, 6, 6);
     root->setSpacing(4);
@@ -48,19 +51,19 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     root->addWidget(m_nameLabel);
 
     // --- Speed ---
-    auto* speedGrp  = new QGroupBox("Speed", this);
-    auto* speedForm = new QFormLayout(speedGrp);
+    m_speedGroup  = new QGroupBox("Speed", this);
+    auto* speedForm = new QFormLayout(m_speedGroup);
     speedForm->setLabelAlignment(Qt::AlignRight);
     m_speedSpin = new QDoubleSpinBox(this);
     m_speedSpin->setRange(0, 200);
     m_speedSpin->setSuffix(" km/h");
     m_speedSpin->setDecimals(1);
     speedForm->addRow("Target Speed:", m_speedSpin);
-    root->addWidget(speedGrp);
+    root->addWidget(m_speedGroup);
 
     // --- Lanes ---
-    auto* laneGrp  = new QGroupBox("Lanes (left=negative, right=positive)", this);
-    auto* laneForm = new QFormLayout(laneGrp);
+    m_laneGroup  = new QGroupBox("Lanes (left=negative, right=positive)", this);
+    auto* laneForm = new QFormLayout(m_laneGroup);
     laneForm->setLabelAlignment(Qt::AlignRight);
 
     addLaneRow(laneForm, "Left 2  (lane -2)", m_useLaneLeft2Check,  m_widthLaneLeft2Spin,  false, 3.5, this);
@@ -68,11 +71,11 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     addLaneRow(laneForm, "Center  (lane  0)", m_useLaneCenterCheck, m_widthLaneCenterSpin, false, 0.0, this);
     addLaneRow(laneForm, "Right 1 (lane +1)", m_useLaneRight1Check, m_widthLaneRight1Spin, true,  4.0, this);
     addLaneRow(laneForm, "Right 2 (lane +2)", m_useLaneRight2Check, m_widthLaneRight2Spin, false, 3.5, this);
-    root->addWidget(laneGrp);
+    root->addWidget(m_laneGroup);
 
     // --- Mesh / curve settings ---
-    auto* meshGrp  = new QGroupBox("Mesh", this);
-    auto* meshForm = new QFormLayout(meshGrp);
+    m_meshGroup  = new QGroupBox("Mesh", this);
+    auto* meshForm = new QFormLayout(m_meshGroup);
     meshForm->setLabelAlignment(Qt::AlignRight);
 
     m_segmentLengthSpin = new QDoubleSpinBox(this);
@@ -89,7 +92,33 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
         "Checked: bend pivot at exact edge midpoint\n"
         "Unchecked: pivot weighted by adjacent edge lengths");
     meshForm->addRow("Midpoint split:", m_equalMidpointCheck);
-    root->addWidget(meshGrp);
+    root->addWidget(m_meshGroup);
+
+    m_socketGroup = new QGroupBox("Socket", this);
+    auto* socketForm = new QFormLayout(m_socketGroup);
+    socketForm->setLabelAlignment(Qt::AlignRight);
+
+    m_socketNameEdit = new QLineEdit(this);
+    socketForm->addRow("Name:", m_socketNameEdit);
+
+    m_socketYawSpin = new QDoubleSpinBox(this);
+    m_socketYawSpin->setRange(-360.0, 360.0);
+    m_socketYawSpin->setDecimals(1);
+    m_socketYawSpin->setSingleStep(5.0);
+    m_socketYawSpin->setSuffix(" deg");
+    socketForm->addRow("Yaw:", m_socketYawSpin);
+
+    m_socketEnabledCheck = new QCheckBox("Enabled", this);
+    socketForm->addRow("State:", m_socketEnabledCheck);
+
+    auto* socketButtons = new QHBoxLayout;
+    socketButtons->setContentsMargins(0, 0, 0, 0);
+    m_addSocketButton = new QPushButton("Add Socket", this);
+    m_removeSocketButton = new QPushButton("Remove Socket", this);
+    socketButtons->addWidget(m_addSocketButton);
+    socketButtons->addWidget(m_removeSocketButton);
+    socketForm->addRow(socketButtons);
+    root->addWidget(m_socketGroup);
 
     connect(m_speedSpin, &QDoubleSpinBox::valueChanged,
             this, QOverload<>::of(&PropertiesPanel::applyChanges));
@@ -118,10 +147,25 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
             this, QOverload<>::of(&PropertiesPanel::applyChanges));
     connect(m_equalMidpointCheck, &QCheckBox::toggled,
             this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_socketNameEdit, &QLineEdit::editingFinished,
+            this, &PropertiesPanel::applySocketChanges);
+    connect(m_socketYawSpin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applySocketChanges));
+    connect(m_socketEnabledCheck, &QCheckBox::toggled,
+            this, QOverload<>::of(&PropertiesPanel::applySocketChanges));
+    connect(m_addSocketButton, &QPushButton::clicked,
+            this, &PropertiesPanel::addSocket);
+    connect(m_removeSocketButton, &QPushButton::clicked,
+            this, &PropertiesPanel::removeSocket);
 
     root->addStretch();
 
-    setEnabled(false);
+    setRoadEnabled(false);
+    setSocketEnabled(false);
+}
+
+QSize PropertiesPanel::sizeHint() const {
+    return {320, QWidget::sizeHint().height()};
 }
 
 void PropertiesPanel::setNetwork(const RoadNetwork* net) {
@@ -131,17 +175,39 @@ void PropertiesPanel::setNetwork(const RoadNetwork* net) {
 void PropertiesPanel::onSelectionChanged(int roadIdx) {
     m_roadIdx = roadIdx;
     if (!m_net || roadIdx < 0 || roadIdx >= (int)m_net->roads.size()) {
-        m_nameLabel->setText("—");
-        setEnabled(false);
+        if (m_socketIdx < 0) {
+            m_nameLabel->setText("—");
+            setRoadEnabled(false);
+        }
         return;
     }
     populate(m_net->roads[roadIdx]);
-    setEnabled(true);
+    setRoadEnabled(true);
+}
+
+void PropertiesPanel::onSelectionStateChanged(const Selection& sel) {
+    m_intersectionIdx = sel.intersectionIdx;
+    m_socketIdx = sel.socketIdx;
+    if (!m_net || !sel.hasSocket() ||
+        sel.intersectionIdx < 0 || sel.intersectionIdx >= (int)m_net->intersections.size()) {
+        if (m_roadIdx < 0) {
+            m_nameLabel->setText("—");
+            setSocketEnabled(false);
+        } else {
+            setSocketEnabled(false);
+        }
+        return;
+    }
+    populateSocket(m_net->intersections[sel.intersectionIdx], sel.socketIdx);
+    setSocketEnabled(true);
 }
 
 void PropertiesPanel::onNetworkChanged() {
     if (m_net && m_roadIdx >= 0 && m_roadIdx < (int)m_net->roads.size())
         populate(m_net->roads[m_roadIdx]);
+    if (m_net && m_socketIdx >= 0 &&
+        m_intersectionIdx >= 0 && m_intersectionIdx < (int)m_net->intersections.size())
+        populateSocket(m_net->intersections[m_intersectionIdx], m_socketIdx);
 }
 
 void PropertiesPanel::populate(const Road& road) {
@@ -181,7 +247,35 @@ void PropertiesPanel::populate(const Road& road) {
     blockAll(false);
 }
 
-void PropertiesPanel::setEnabled(bool on) {
+void PropertiesPanel::populateSocket(const Intersection& ix, int socketIdx) {
+    if (socketIdx < 0 || socketIdx >= (int)ix.sockets.size()) return;
+
+    const auto& socket = ix.sockets[socketIdx];
+    QString ixName = ix.name.empty()
+        ? QString::fromStdString(ix.id)
+        : QString::fromStdString(ix.name);
+    QString socketName = socket.name.empty()
+        ? QString::fromStdString(socket.id)
+        : QString::fromStdString(socket.name);
+    m_nameLabel->setText(ixName + " / " + socketName);
+
+    m_socketNameEdit->blockSignals(true);
+    m_socketYawSpin->blockSignals(true);
+    m_socketEnabledCheck->blockSignals(true);
+
+    m_socketNameEdit->setText(QString::fromStdString(socket.name));
+    m_socketYawSpin->setValue(socket.yaw * 180.0 / 3.14159265358979323846);
+    m_socketEnabledCheck->setChecked(socket.enabled);
+
+    m_socketNameEdit->blockSignals(false);
+    m_socketYawSpin->blockSignals(false);
+    m_socketEnabledCheck->blockSignals(false);
+}
+
+void PropertiesPanel::setRoadEnabled(bool on) {
+    m_speedGroup->setVisible(on);
+    m_laneGroup->setVisible(on);
+    m_meshGroup->setVisible(on);
     m_speedSpin->setEnabled(on);
     m_useLaneLeft2Check->setEnabled(on);  m_widthLaneLeft2Spin->setEnabled(on);
     m_useLaneLeft1Check->setEnabled(on);  m_widthLaneLeft1Spin->setEnabled(on);
@@ -190,6 +284,15 @@ void PropertiesPanel::setEnabled(bool on) {
     m_useLaneRight2Check->setEnabled(on); m_widthLaneRight2Spin->setEnabled(on);
     m_segmentLengthSpin->setEnabled(on);
     m_equalMidpointCheck->setEnabled(on);
+}
+
+void PropertiesPanel::setSocketEnabled(bool on) {
+    m_socketGroup->setVisible(on);
+    m_socketNameEdit->setEnabled(on);
+    m_socketYawSpin->setEnabled(on);
+    m_socketEnabledCheck->setEnabled(on);
+    m_addSocketButton->setEnabled(on);
+    m_removeSocketButton->setEnabled(on);
 }
 
 void PropertiesPanel::applyChanges() {
@@ -211,4 +314,20 @@ void PropertiesPanel::applyChanges() {
     p.equalMidpoint  = m_equalMidpointCheck->isChecked();
 
     emit roadModified(m_roadIdx, p);
+}
+
+void PropertiesPanel::applySocketChanges() {
+    if (!m_net || m_intersectionIdx < 0 || m_socketIdx < 0) return;
+    emit selectedSocketModified(
+        m_socketNameEdit->text(),
+        static_cast<float>(m_socketYawSpin->value() * 3.14159265358979323846 / 180.0),
+        m_socketEnabledCheck->isChecked());
+}
+
+void PropertiesPanel::addSocket() {
+    emit addSocketRequested();
+}
+
+void PropertiesPanel::removeSocket() {
+    emit removeSocketRequested();
 }

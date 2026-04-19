@@ -34,9 +34,13 @@ public slots:
     void setToolMode(ToolMode m);
     void applyRoadProperties(int roadIdx, RoadProperties props);
     void setWireframe(bool on);
+    void applySelectedSocketProperties(const QString& name, float yaw, bool enabled);
+    void addSocketToSelectedIntersection();
+    void removeSelectedSocket();
 
 signals:
     void selectionChanged(int roadIdx);  // -1 = deselected
+    void selectionStateChanged(const Selection& sel);
     void networkChanged();
 
 protected:
@@ -57,6 +61,7 @@ private:
     glm::vec3 screenToGlAtDepth(const QPoint& p, float ndcZ) const;
     bool pickControlPoint(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
                           int& outRoadIdx, int& outPointIdx);
+    bool pickSocket(const QPoint& screenPos, int& outIntersectionIdx, int& outSocketIdx) const;
     int  pickRoad(const QPoint& screenPos) const;
     int  pickIntersection(const QPoint& screenPos) const;
     glm::vec3 rayHitY(const glm::vec3& origin, const glm::vec3& dir, float y) const;
@@ -67,6 +72,11 @@ private:
     glm::vec3 toGlVector(const glm::vec3& v) const;
     glm::vec3 selectionPivotGlPos() const;
     std::vector<SelectedPoint> pickControlPointsInRect(const QRect& rect) const;
+    bool endpointHasIntersectionLink(int roadIdx, int pointIdx) const;
+    void detachEndpointFromIntersection(int roadIdx, int pointIdx);
+    bool canConnectEndpointToSelectedSocket(int roadIdx, int pointIdx) const;
+    void connectEndpointToSelectedSocket(int roadIdx, int pointIdx);
+    void syncLinkedEndpointsForIntersection(int intersectionIdx);
     void syncSelectionVisuals();
     void beginPointDrag(const glm::vec3& pivotGlPos);
     int selectedRoadForPanels() const;
@@ -98,6 +108,9 @@ private:
     bool      m_altDown     = false;
     struct PointDragOrigin { SelectedPoint point; glm::vec3 pos; };
     std::vector<PointDragOrigin> m_pointDragOrigins;
+    int       m_socketDragIntersectionIdx = -1;
+    int       m_socketDragSocketIdx = -1;
+    glm::vec3 m_socketDragOrigLocalPos = {0, 0, 0};
 
     // Box selection state
     bool      m_boxSelectPending = false;

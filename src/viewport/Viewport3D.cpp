@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QFile>
 #include <QKeyEvent>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QStringConverter>
 #include <QTextStream>
@@ -279,6 +280,16 @@ glm::vec3 Viewport3D::selectionPivotGlPos() const {
         if (count > 0) return sum / static_cast<float>(count);
     }
 
+    if (m_editor.sel.hasSocket() &&
+        m_editor.sel.intersectionIdx < (int)m_network.intersections.size()) {
+        const auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
+        if (m_editor.sel.socketIdx >= 0 && m_editor.sel.socketIdx < (int)ix.sockets.size()) {
+            const auto& socket = ix.sockets[m_editor.sel.socketIdx];
+            glm::vec3 pos = ix.pos + socket.localPos;
+            return {-pos.x, pos.y, pos.z};
+        }
+    }
+
     if (m_editor.sel.hasIntersection() &&
         m_editor.sel.intersectionIdx < (int)m_network.intersections.size()) {
         const auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
@@ -303,6 +314,7 @@ void Viewport3D::syncSelectionVisuals() {
     if (!m_glReady) return;
     m_roadRenderer.updateSelection(this, m_network, m_editor.sel);
     emit selectionChanged(selectedRoadForPanels());
+    emit selectionStateChanged(m_editor.sel);
 }
 
 void Viewport3D::beginPointDrag(const glm::vec3& pivotGlPos) {
@@ -318,6 +330,88 @@ void Viewport3D::beginPointDrag(const glm::vec3& pivotGlPos) {
     m_dragging = !m_pointDragOrigins.empty();
     if (m_dragging)
         m_editor.pushUndo(m_network);
+}
+
+void Viewport3D::applySelectedSocketProperties(const QString& name, float yaw, bool enabled) {
+    if (!m_editor.sel.hasSocket()) return;
+    if (m_editor.sel.intersectionIdx < 0 ||
+        m_editor.sel.intersectionIdx >= (int)m_network.intersections.size())
+        return;
+    auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
+    if (m_editor.sel.socketIdx < 0 || m_editor.sel.socketIdx >= (int)ix.sockets.size())
+        return;
+
+    m_editor.pushUndo(m_network);
+    auto& socket = ix.sockets[m_editor.sel.socketIdx];
+    socket.name = name.toStdString();
+    socket.yaw = yaw;
+    socket.enabled = enabled;
+    syncLinkedEndpointsForIntersection(m_editor.sel.intersectionIdx);
+    makeCurrent();
+    m_roadRenderer.rebuild(this, m_network);
+    syncSelectionVisuals();
+    doneCurrent();
+    emit networkChanged();
+}
+
+void Viewport3D::addSocketToSelectedIntersection() {
+    if (m_editor.sel.intersectionIdx < 0 ||
+        m_editor.sel.intersectionIdx >= (int)m_network.intersections.size())
+        return;
+
+    auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
+    m_editor.pushUndo(m_network);
+    int index = static_cast<int>(ix.sockets.size());
+    float radius = std::max(ix.entryDist, 12.0f);
+    float angle = index * 0.78539816339f;
+    IntersectionSocket socket;
+    socket.id = "s" + std::to_string(index);
+    socket.name = "Socket " + std::to_string(index + 1);
+    socket.localPos = {std::cos(angle) * radius, 0.0f, std::sin(angle) * radius};
+    socket.yaw = angle;
+    socket.enabled = true;
+    ix.sockets.push_back(socket);
+    m_editor.sel.setIntersection(m_editor.sel.intersectionIdx, index);
+    makeCurrent();
+    m_roadRenderer.rebuild(this, m_network);
+    syncSelectionVisuals();
+    doneCurrent();
+    emit networkChanged();
+}
+
+void Viewport3D::removeSelectedSocket() {
+    if (!m_editor.sel.hasSocket()) return;
+    if (m_editor.sel.intersectionIdx < 0 ||
+        m_editor.sel.intersectionIdx >= (int)m_network.intersections.size())
+        return;
+
+    auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
+    if (m_editor.sel.socketIdx < 0 || m_editor.sel.socketIdx >= (int)ix.sockets.size())
+        return;
+
+    const std::string removedSocketId = ix.sockets[m_editor.sel.socketIdx].id;
+    m_editor.pushUndo(m_network);
+    for (auto& road : m_network.roads) {
+        if (road.startLink.intersectionId == ix.id && road.startLink.socketId == removedSocketId) {
+            road.startLink.clear();
+            road.startIntersectionId.clear();
+        }
+        if (road.endLink.intersectionId == ix.id && road.endLink.socketId == removedSocketId) {
+            road.endLink.clear();
+            road.endIntersectionId.clear();
+        }
+    }
+    ix.sockets.erase(ix.sockets.begin() + m_editor.sel.socketIdx);
+    if (!ix.sockets.empty())
+        m_editor.sel.setIntersection(m_editor.sel.intersectionIdx,
+                                     std::min(m_editor.sel.socketIdx, (int)ix.sockets.size() - 1));
+    else
+        m_editor.sel.setIntersection(m_editor.sel.intersectionIdx, -1);
+    makeCurrent();
+    m_roadRenderer.rebuild(this, m_network);
+    syncSelectionVisuals();
+    doneCurrent();
+    emit networkChanged();
 }
 
 int Viewport3D::pickRoad(const QPoint& screenPos) const {
@@ -391,6 +485,41 @@ int Viewport3D::pickIntersection(const QPoint& screenPos) const {
     return best;
 }
 
+bool Viewport3D::pickSocket(const QPoint& screenPos, int& outIntersectionIdx, int& outSocketIdx) const {
+    const float kPickRadiusSq = 16.0f * 16.0f;
+    float bestDist = std::numeric_limits<float>::max();
+    outIntersectionIdx = -1;
+    outSocketIdx = -1;
+
+    glm::mat4 vp = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+    glm::vec2 mp = {float(screenPos.x()), float(screenPos.y())};
+
+    for (int ii = 0; ii < (int)m_network.intersections.size(); ++ii) {
+        const auto& ix = m_network.intersections[ii];
+        for (int si = 0; si < (int)ix.sockets.size(); ++si) {
+            const auto& socket = ix.sockets[si];
+            if (!socket.enabled) continue;
+
+            glm::vec3 worldPos = ix.pos + socket.localPos;
+            glm::vec4 clip = vp * glm::vec4(-worldPos.x, worldPos.y, worldPos.z, 1.0f);
+            if (clip.w <= 0.0f) continue;
+            glm::vec3 ndc = glm::vec3(clip) / clip.w;
+            float sx = (ndc.x + 1.0f) * 0.5f * width();
+            float sy = (1.0f - ndc.y) * 0.5f * height();
+            float dx = sx - mp.x;
+            float dy = sy - mp.y;
+            float distSq = dx * dx + dy * dy;
+            if (distSq < kPickRadiusSq && distSq < bestDist) {
+                bestDist = distSq;
+                outIntersectionIdx = ii;
+                outSocketIdx = si;
+            }
+        }
+    }
+
+    return outIntersectionIdx >= 0;
+}
+
 void Viewport3D::setupIxDragEndpoints(int ixIdx) {
     m_ixDragEndpoints.clear();
     if (ixIdx < 0 || ixIdx >= (int)m_network.intersections.size()) return;
@@ -429,6 +558,109 @@ std::vector<SelectedPoint> Viewport3D::pickControlPointsInRect(const QRect& rect
     }
 
     return result;
+}
+
+bool Viewport3D::endpointHasIntersectionLink(int roadIdx, int pointIdx) const {
+    if (roadIdx < 0 || roadIdx >= static_cast<int>(m_network.roads.size()))
+        return false;
+
+    const auto& road = m_network.roads[roadIdx];
+    if (pointIdx == 0)
+        return !road.startIntersectionId.empty() || road.startLink.connected();
+    if (pointIdx == static_cast<int>(road.points.size()) - 1)
+        return !road.endIntersectionId.empty() || road.endLink.connected();
+    return false;
+}
+
+bool Viewport3D::canConnectEndpointToSelectedSocket(int roadIdx, int pointIdx) const {
+    if (!m_editor.sel.hasSocket()) return false;
+    if (roadIdx < 0 || roadIdx >= static_cast<int>(m_network.roads.size())) return false;
+    const auto& road = m_network.roads[roadIdx];
+    return pointIdx == 0 || pointIdx == static_cast<int>(road.points.size()) - 1;
+}
+
+void Viewport3D::syncLinkedEndpointsForIntersection(int intersectionIdx) {
+    if (intersectionIdx < 0 || intersectionIdx >= static_cast<int>(m_network.intersections.size()))
+        return;
+
+    const auto& ix = m_network.intersections[intersectionIdx];
+    for (auto& road : m_network.roads) {
+        if (!road.points.empty() &&
+            road.startLink.intersectionId == ix.id &&
+            !road.startLink.socketId.empty()) {
+            if (const auto* socket = m_network.findSocket(ix.id, road.startLink.socketId))
+                road.points.front().pos = ix.pos + socket->localPos;
+        }
+        if (!road.points.empty() &&
+            road.endLink.intersectionId == ix.id &&
+            !road.endLink.socketId.empty()) {
+            if (const auto* socket = m_network.findSocket(ix.id, road.endLink.socketId))
+                road.points.back().pos = ix.pos + socket->localPos;
+        }
+    }
+}
+
+void Viewport3D::connectEndpointToSelectedSocket(int roadIdx, int pointIdx) {
+    if (!canConnectEndpointToSelectedSocket(roadIdx, pointIdx)) return;
+    if (m_editor.sel.intersectionIdx < 0 ||
+        m_editor.sel.intersectionIdx >= static_cast<int>(m_network.intersections.size()))
+        return;
+
+    auto& road = m_network.roads[roadIdx];
+    const auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
+    if (m_editor.sel.socketIdx < 0 || m_editor.sel.socketIdx >= static_cast<int>(ix.sockets.size()))
+        return;
+    const auto& socket = ix.sockets[m_editor.sel.socketIdx];
+
+    m_editor.pushUndo(m_network);
+    if (pointIdx == 0) {
+        road.startIntersectionId = ix.id;
+        road.startLink.intersectionId = ix.id;
+        road.startLink.socketId = socket.id;
+        road.points.front().pos = ix.pos + socket.localPos;
+    } else {
+        road.endIntersectionId = ix.id;
+        road.endLink.intersectionId = ix.id;
+        road.endLink.socketId = socket.id;
+        road.points.back().pos = ix.pos + socket.localPos;
+    }
+    m_editor.sel.setSinglePoint(roadIdx, pointIdx);
+    makeCurrent();
+    m_roadRenderer.rebuild(this, m_network);
+    syncSelectionVisuals();
+    doneCurrent();
+    emit networkChanged();
+}
+
+void Viewport3D::detachEndpointFromIntersection(int roadIdx, int pointIdx) {
+    if (roadIdx < 0 || roadIdx >= static_cast<int>(m_network.roads.size()))
+        return;
+
+    auto& road = m_network.roads[roadIdx];
+    bool canDetach = false;
+    if (pointIdx == 0) {
+        canDetach = !road.startIntersectionId.empty();
+    } else if (pointIdx == static_cast<int>(road.points.size()) - 1) {
+        canDetach = !road.endIntersectionId.empty();
+    } else {
+        return;
+    }
+    if (!canDetach) return;
+
+    m_editor.pushUndo(m_network);
+    if (pointIdx == 0) {
+        road.startIntersectionId.clear();
+        road.startLink.clear();
+    } else {
+        road.endIntersectionId.clear();
+        road.endLink.clear();
+    }
+    m_editor.sel.setSinglePoint(roadIdx, pointIdx);
+    makeCurrent();
+    m_roadRenderer.rebuild(this, m_network);
+    syncSelectionVisuals();
+    doneCurrent();
+    emit networkChanged();
 }
 
 bool Viewport3D::pickControlPoint(
@@ -476,6 +708,33 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
     if (e->button() == Qt::LeftButton) {
         m_leftButtonDown = true;
         m_leftPressPos = e->pos();
+    }
+
+    if (e->button() == Qt::RightButton && m_glReady && m_editor.mode == ToolMode::Edit) {
+        int ri = -1;
+        int pi = -1;
+        glm::vec3 rayDir = screenToRay(e->pos());
+        glm::vec3 rayOri = m_camera.position();
+        if (pickControlPoint(rayOri, rayDir, ri, pi)) {
+            m_editor.sel.setSinglePoint(ri, pi);
+            makeCurrent();
+            syncSelectionVisuals();
+            doneCurrent();
+
+            QMenu menu(this);
+            QAction* connectAction = nullptr;
+            QAction* detachAction = nullptr;
+            if (canConnectEndpointToSelectedSocket(ri, pi))
+                connectAction = menu.addAction(QStringLiteral("Connect To Selected Socket"));
+            if (endpointHasIntersectionLink(ri, pi))
+                detachAction = menu.addAction(QStringLiteral("Detach From Intersection"));
+            QAction* chosen = menu.exec(e->globalPosition().toPoint());
+            if (chosen == connectAction)
+                connectEndpointToSelectedSocket(ri, pi);
+            else if (chosen == detachAction)
+                detachEndpointFromIntersection(ri, pi);
+            return;
+        }
     }
 
     if (e->modifiers() & Qt::AltModifier) {
@@ -577,6 +836,19 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
 
             if (m_editor.sel.valid())
                 beginPointDrag(glPos);
+            else if (m_editor.sel.hasSocket()) {
+                m_socketDragIntersectionIdx = m_editor.sel.intersectionIdx;
+                m_socketDragSocketIdx = m_editor.sel.socketIdx;
+                if (m_socketDragIntersectionIdx >= 0 &&
+                    m_socketDragIntersectionIdx < (int)m_network.intersections.size() &&
+                    m_socketDragSocketIdx >= 0 &&
+                    m_socketDragSocketIdx < (int)m_network.intersections[m_socketDragIntersectionIdx].sockets.size()) {
+                    m_socketDragOrigLocalPos =
+                        m_network.intersections[m_socketDragIntersectionIdx].sockets[m_socketDragSocketIdx].localPos;
+                    m_dragging = true;
+                    m_editor.pushUndo(m_network);
+                }
+            }
             else if (m_editor.sel.hasIntersection()) {
                 setupIxDragEndpoints(m_editor.sel.intersectionIdx);
                 m_dragging = true;
@@ -586,10 +858,20 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
         }
     }
 
+    int socketIntersectionIdx = -1;
+    int socketIdx = -1;
+    if (pickSocket(e->pos(), socketIntersectionIdx, socketIdx)) {
+        m_editor.sel.setIntersection(socketIntersectionIdx, socketIdx);
+        m_gizmoDragAxis = TransformGizmo::Axis::None;
+        makeCurrent();
+        syncSelectionVisuals();
+        doneCurrent();
+        return;
+    }
+
     int ixIdx = pickIntersection(e->pos());
     if (ixIdx >= 0) {
-        m_editor.sel.clear();
-        m_editor.sel.intersectionIdx = ixIdx;
+        m_editor.sel.setIntersection(ixIdx);
         const auto& ix = m_network.intersections[ixIdx];
         m_gizmoDragAxis = TransformGizmo::Axis::None;
         m_dragPlaneY = {-ix.pos.x, ix.pos.y, ix.pos.z};
@@ -730,6 +1012,43 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
             }
 
             makeCurrent();
+            if (m_socketDragIntersectionIdx >= 0)
+                syncLinkedEndpointsForIntersection(m_socketDragIntersectionIdx);
+            m_roadRenderer.rebuild(this, m_network);
+            syncSelectionVisuals();
+            doneCurrent();
+            emit networkChanged();
+        } else if (m_editor.sel.hasSocket()) {
+            if (m_socketDragIntersectionIdx < 0 ||
+                m_socketDragIntersectionIdx >= (int)m_network.intersections.size() ||
+                m_socketDragSocketIdx < 0 ||
+                m_socketDragSocketIdx >= (int)m_network.intersections[m_socketDragIntersectionIdx].sockets.size()) {
+                return;
+            }
+
+            auto& socket =
+                m_network.intersections[m_socketDragIntersectionIdx].sockets[m_socketDragSocketIdx];
+            if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
+                appendInputDebugLog("drag move type=Screen socket");
+                auto [glHit, ok] = resolveScreenGlHit();
+                if (!ok) return;
+                glm::vec3 deltaGl = glHit - m_gizmoDragLastGlPos;
+                glm::vec3 deltaWorld = {-deltaGl.x, deltaGl.y, deltaGl.z};
+                socket.localPos += deltaWorld;
+                m_gizmoDragLastGlPos = glHit;
+            } else {
+                appendInputDebugLog(QString("drag move type=%1 socket").arg(axisName(m_gizmoDragAxis)));
+                glm::vec3 newGlPos = resolveGlPos();
+                glm::vec3 deltaGl = newGlPos - m_gizmoDragOrigGlPos;
+                glm::vec3 deltaWorld = {
+                    (m_gizmoDragAxis == TransformGizmo::Axis::X) ? deltaGl.x : -deltaGl.x,
+                    deltaGl.y,
+                    deltaGl.z
+                };
+                socket.localPos = m_socketDragOrigLocalPos + deltaWorld;
+            }
+
+            makeCurrent();
             m_roadRenderer.rebuild(this, m_network);
             syncSelectionVisuals();
             doneCurrent();
@@ -834,6 +1153,9 @@ void Viewport3D::mouseReleaseEvent(QMouseEvent* e) {
         m_gizmoDragAxis = TransformGizmo::Axis::None;
         m_skipNextScreenDragMove = false;
         m_pointDragOrigins.clear();
+        m_socketDragIntersectionIdx = -1;
+        m_socketDragSocketIdx = -1;
+        m_socketDragOrigLocalPos = {0, 0, 0};
     }
 
     m_rotating = false;

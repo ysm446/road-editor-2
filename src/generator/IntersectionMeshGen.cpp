@@ -20,30 +20,11 @@ static void laneWidths(const Road& road, float& leftW, float& rightW) {
     if (leftW < 1e-4f && rightW < 1e-4f) leftW = rightW = 0.1f;
 }
 
-// Quadratic Bezier: P0 → ctrl → P1 at parameter t.
-static glm::vec3 bezier2(const glm::vec3& p0, const glm::vec3& ctrl,
-                         const glm::vec3& p1, float t)
+static glm::vec3 bezier3(const glm::vec3& p0, const glm::vec3& c0,
+                         const glm::vec3& c1, const glm::vec3& p1, float t)
 {
     float u = 1.0f - t;
-    return u*u*p0 + 2.0f*u*t*ctrl + t*t*p1;
-}
-
-// Line intersection in the XZ plane.
-// Finds K such that p1 + s*d1 == p2 + t*d2 (for some s, t).
-// Returns false if lines are parallel.
-static bool lineIntersectXZ(const glm::vec3& p1, const glm::vec3& d1,
-                             const glm::vec3& p2, const glm::vec3& d2,
-                             glm::vec3& outK)
-{
-    // 2D cross product of d1 x d2 in XZ
-    float denom = d1.x * d2.z - d1.z * d2.x;
-    if (std::abs(denom) < 1e-6f) return false;
-    float dx = p2.x - p1.x;
-    float dz = p2.z - p1.z;
-    float s   = (dx * d2.z - dz * d2.x) / denom;
-    outK   = p1 + s * d1;
-    outK.y = (p1.y + p2.y) * 0.5f;
-    return true;
+    return u*u*u*p0 + 3.0f*u*u*t*c0 + 3.0f*u*t*t*c1 + t*t*t*p1;
 }
 
 } // anonymous namespace
@@ -131,9 +112,8 @@ void IntersectionMeshGen::generate(
 
     // --- 3. Build polygon with Bezier arcs in the gaps between different roads ---
     // For consecutive boundary points from the SAME road: straight line (road cross-section).
-    // For consecutive boundary points from DIFFERENT roads: quadratic Bezier arc.
-    //   Control point = intersection of the two tangent lines extended INTO the gap.
-    //   This creates a smooth inward-curved corner between the roads.
+    // For consecutive boundary points from DIFFERENT roads: cubic Bezier arc whose
+    // endpoint tangents follow each road's endpoint direction.
 
     struct PolyPt { glm::vec3 posGL; };
     std::vector<PolyPt> poly;
@@ -146,19 +126,18 @@ void IntersectionMeshGen::generate(
         poly.push_back({ cur.posGL });
 
         if (cur.roadIdx != nxt.roadIdx) {
-            // Gap between two roads. Tangents point AWAY from intersection,
-            // so -tangent points INTO the gap (toward the intersection interior).
-            glm::vec3 K;
-            if (lineIntersectXZ(cur.posWorld, -cur.tangentWorld,
-                                 nxt.posWorld, -nxt.tangentWorld, K)) {
-                // Sample arc interior points (skip endpoints: they are added as boundary pts)
-                for (int k = 1; k < kArcSegs; ++k) {
-                    float t    = float(k) / float(kArcSegs);
-                    glm::vec3 p = bezier2(cur.posWorld, K, nxt.posWorld, t);
-                    poly.push_back({ toGL(p) });
-                }
+            const float gapLen = glm::distance(cur.posWorld, nxt.posWorld);
+            const float handleLen = std::max(0.5f, gapLen * 0.35f);
+            glm::vec3 c0 = cur.posWorld + cur.tangentWorld * handleLen;
+            glm::vec3 c1 = nxt.posWorld - nxt.tangentWorld * handleLen;
+            c0.y = cur.posWorld.y;
+            c1.y = nxt.posWorld.y;
+
+            for (int k = 1; k < kArcSegs; ++k) {
+                float t = float(k) / float(kArcSegs);
+                glm::vec3 p = bezier3(cur.posWorld, c0, c1, nxt.posWorld, t);
+                poly.push_back({ toGL(p) });
             }
-            // parallel roads: no arc, straight edge is fine
         }
     }
 

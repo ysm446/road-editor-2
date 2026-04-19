@@ -61,6 +61,8 @@ private:
     glm::vec3 screenToGlAtDepth(const QPoint& p, float ndcZ) const;
     bool pickControlPoint(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
                           int& outRoadIdx, int& outPointIdx);
+    bool pickEndpointControlPoint(const QPoint& screenPos, int& outRoadIdx, int& outPointIdx,
+                                  float pickRadiusPx) const;
     bool pickSocket(const QPoint& screenPos, int& outIntersectionIdx, int& outSocketIdx) const;
     bool pickSocket(const QPoint& screenPos, int& outIntersectionIdx, int& outSocketIdx,
                     float pickRadiusPx) const;
@@ -117,6 +119,8 @@ private:
     glm::vec3 m_socketDragOrigLocalPos = {0, 0, 0};
     int       m_socketHoverIntersectionIdx = -1;
     int       m_socketHoverSocketIdx = -1;
+    int       m_endpointHoverRoadIdx = -1;
+    int       m_endpointHoverPointIdx = -1;
 
     // Box selection state
     bool      m_boxSelectPending = false;

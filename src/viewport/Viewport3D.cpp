@@ -348,6 +348,7 @@ void Viewport3D::setToolMode(ToolMode m) {
     m_roadRenderer.setShowPoints(m == ToolMode::Edit);
     m_roadRenderer.setVerticalCurvePreviewColors(m == ToolMode::VerticalCurve);
     m_roadRenderer.setBankAnglePreviewColors(m == ToolMode::BankAngle);
+    m_roadRenderer.setLaneSectionPreview(m == ToolMode::LaneSection);
     m_boxSelectPending = false;
     m_boxSelecting = false;
     m_boxSelectRoadCandidate = -1;

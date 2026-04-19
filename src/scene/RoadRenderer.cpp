@@ -3,6 +3,7 @@
 #include "../generator/ClothoidGen.h"
 #include "../generator/VerticalCurveGen.h"
 #include "../generator/BankAngleGen.h"
+#include "../generator/LaneSectionGen.h"
 #include "../generator/IntersectionMeshGen.h"
 #include <set>
 #include <cmath>
@@ -22,6 +23,7 @@ glm::vec3 previewGradeColor(float value, float threshold) {
 
 void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
     m_roads.init(f);
+    m_lanePreview.init(f);
     m_nodes.init(f);
     m_socketLines.init(f);
     m_socketPoints.init(f);
@@ -62,6 +64,7 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     };
 
     m_roads.begin();
+    m_lanePreview.begin();
     for (const auto& road : net.roads) {
         if (road.points.size() < 2) continue;
         auto baseCurve = ClothoidGen::buildCenterlineDetailed(
@@ -74,8 +77,87 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
                 color = previewGradeColor(glm::degrees(std::abs(bankAngles[i])), kBankAngleMaxDegrees);
             m_roads.addLine(toGL(curve[i].pos), toGL(curve[i + 1].pos), color);
         }
+
+        if (m_laneSectionPreview && curve.size() >= 2) {
+            const glm::vec3 kCenter = {0.95f, 0.85f, 0.20f};
+            const glm::vec3 kBoundary = {0.90f, 0.90f, 0.92f};
+            std::vector<float> arc;
+            arc.reserve(curve.size());
+            arc.push_back(0.0f);
+            for (size_t i = 1; i < curve.size(); ++i)
+                arc.push_back(arc.back() + glm::length(curve[i].pos - curve[i - 1].pos));
+            const float total = std::max(arc.back(), 1e-6f);
+
+            auto tangentAt = [&](int idx) -> glm::vec3 {
+                glm::vec3 t;
+                if (idx == 0) t = curve[1].pos - curve[0].pos;
+                else if (idx == (int)curve.size() - 1) t = curve[idx].pos - curve[idx - 1].pos;
+                else t = curve[idx + 1].pos - curve[idx - 1].pos;
+                return glm::length(t) > 1e-6f ? glm::normalize(t) : glm::vec3(0, 0, 1);
+            };
+
+            auto pointFor = [&](int idx, float lateral) -> glm::vec3 {
+                glm::vec3 t = tangentAt(idx);
+                glm::vec3 b = glm::cross(glm::vec3(0, 1, 0), t);
+                if (glm::length(b) <= 1e-6f) b = glm::vec3(1, 0, 0);
+                else b = glm::normalize(b);
+                return curve[idx].pos + b * lateral;
+            };
+
+            auto emitLine = [&](auto offsetFn, const glm::vec3& color) {
+                for (size_t i = 0; i + 1 < curve.size(); ++i) {
+                    const float u0 = arc[i] / total;
+                    const float u1 = arc[i + 1] / total;
+                    const EvaluatedLaneSection s0 = LaneSectionGen::evaluateAtU(road, u0);
+                    const EvaluatedLaneSection s1 = LaneSectionGen::evaluateAtU(road, u1);
+                    float o0 = 0.0f, o1 = 0.0f;
+                    if (!offsetFn(s0, o0) || !offsetFn(s1, o1))
+                        continue;
+                    m_lanePreview.addLine(toGL(pointFor((int)i, o0)),
+                                          toGL(pointFor((int)i + 1, o1)),
+                                          color);
+                }
+            };
+
+            emitLine([](const EvaluatedLaneSection& s, float& out) {
+                out = s.offsetCenter;
+                return true;
+            }, kCenter);
+
+            emitLine([](const EvaluatedLaneSection& s, float& out) {
+                if (s.widthCenter <= 1e-4f) return false;
+                out = s.offsetCenter + s.widthCenter * 0.5f;
+                return true;
+            }, kBoundary);
+            emitLine([](const EvaluatedLaneSection& s, float& out) {
+                if (s.widthCenter <= 1e-4f) return false;
+                out = s.offsetCenter - s.widthCenter * 0.5f;
+                return true;
+            }, kBoundary);
+            emitLine([](const EvaluatedLaneSection& s, float& out) {
+                if (s.widthLeft1 <= 1e-4f) return false;
+                out = s.offsetCenter + s.widthCenter * 0.5f + s.widthLeft1;
+                return true;
+            }, kBoundary);
+            emitLine([](const EvaluatedLaneSection& s, float& out) {
+                if (s.widthLeft2 <= 1e-4f) return false;
+                out = s.offsetCenter + s.widthCenter * 0.5f + s.widthLeft1 + s.widthLeft2;
+                return true;
+            }, kBoundary);
+            emitLine([](const EvaluatedLaneSection& s, float& out) {
+                if (s.widthRight1 <= 1e-4f) return false;
+                out = s.offsetCenter - s.widthCenter * 0.5f - s.widthRight1;
+                return true;
+            }, kBoundary);
+            emitLine([](const EvaluatedLaneSection& s, float& out) {
+                if (s.widthRight2 <= 1e-4f) return false;
+                out = s.offsetCenter - s.widthCenter * 0.5f - s.widthRight1 - s.widthRight2;
+                return true;
+            }, kBoundary);
+        }
     }
     m_roads.upload(f);
+    m_lanePreview.upload(f);
 
     m_nodes.begin();
     for (const auto& n : net.intersections) {
@@ -220,6 +302,8 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
     if (m_showPoints)
         m_allCtrlLines.draw(f, lineShader, vp);
     m_roads.draw(f, lineShader, vp);
+    if (m_laneSectionPreview)
+        m_lanePreview.draw(f, lineShader, vp);
     m_nodes.draw(f, lineShader, vp);
     m_socketLines.draw(f, lineShader, vp);
 
@@ -239,6 +323,7 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
 
 void RoadRenderer::destroy(QOpenGLFunctions_4_1_Core* f) {
     m_roads.destroy(f);
+    m_lanePreview.destroy(f);
     m_nodes.destroy(f);
     m_socketLines.destroy(f);
     m_socketPoints.destroy(f);

@@ -67,7 +67,7 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     m_lanePreview.begin();
     for (const auto& road : net.roads) {
         if (road.points.size() < 2) continue;
-        auto baseCurve = ClothoidGen::buildCenterlineDetailed(
+        auto baseCurve = ClothoidGen::buildCenterlineDetailedResampled(
             road.points, road.segmentLength, road.equalMidpoint);
         auto curve = VerticalCurveGen::applyDetailed(road, baseCurve, road.segmentLength);
         auto bankAngles = BankAngleGen::sampleAnglesRadians(road, curve);
@@ -237,7 +237,7 @@ void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
     for (int roadIdx : selectedRoads) {
         if (roadIdx < 0 || roadIdx >= (int)net.roads.size()) continue;
         const auto& road = net.roads[roadIdx];
-        auto baseCurve = ClothoidGen::buildCenterlineDetailed(
+        auto baseCurve = ClothoidGen::buildCenterlineDetailedResampled(
             road.points, road.segmentLength, road.equalMidpoint);
         auto curve = VerticalCurveGen::applyDetailed(road, baseCurve, road.segmentLength);
         for (size_t i = 0; i + 1 < curve.size(); ++i)

@@ -44,6 +44,14 @@ std::vector<glm::vec3> resamplePolyline(
 // Use a fine internal sampleInterval (interval/10) for accuracy.
 std::vector<glm::vec3> buildAndResample(
     const std::vector<ControlPoint>& pts,
-    float interval);
+    float interval,
+    bool  equalMidpoint = false);
+
+// Same as buildCenterlineDetailed but resampled at equal arc-length intervals.
+// Segment kinds are preserved from the underlying source segment.
+std::vector<CurvePt> buildCenterlineDetailedResampled(
+    const std::vector<ControlPoint>& pts,
+    float interval,
+    bool  equalMidpoint = false);
 
 } // namespace ClothoidGen

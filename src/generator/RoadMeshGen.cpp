@@ -17,7 +17,7 @@ void RoadMeshGen::generate(const Road&                 road,
     // --- 1. Build smooth centerline using clothoid curves ---
     const float sampleInterval = std::max(road.segmentLength, 0.01f);
     std::vector<glm::vec3> worldSamples =
-        ClothoidGen::buildCenterline(pts, sampleInterval, road.equalMidpoint);
+        ClothoidGen::buildAndResample(pts, sampleInterval, road.equalMidpoint);
     worldSamples = VerticalCurveGen::apply(road, worldSamples, sampleInterval);
 
     if (worldSamples.size() < 2) return;

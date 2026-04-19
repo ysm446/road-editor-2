@@ -427,11 +427,12 @@ std::vector<glm::vec3> resamplePolyline(
 
 std::vector<glm::vec3> buildAndResample(
     const std::vector<ControlPoint>& pts,
-    float interval)
+    float interval,
+    bool  equalMidpoint)
 {
     // Sample clothoid at 1/10 of the target interval for accuracy
     float fineInterval = std::max(interval / 10.0f, 0.01f);
-    auto centerline = buildCenterline(pts, fineInterval);
+    auto centerline = buildCenterline(pts, fineInterval, equalMidpoint);
     return resamplePolyline(centerline, interval);
 }
 
@@ -471,6 +472,53 @@ std::vector<CurvePt> buildCenterlineDetailed(
     }
 
     appendUniqueD(out, pts[n - 1].pos, SegKind::Straight);
+
+    return out;
+}
+
+std::vector<CurvePt> buildCenterlineDetailedResampled(
+    const std::vector<ControlPoint>& pts,
+    float interval,
+    bool  equalMidpoint)
+{
+    std::vector<CurvePt> out;
+    if (pts.size() < 2)
+        return out;
+
+    const float targetInterval = std::max(interval, 0.01f);
+    const float fineInterval = std::max(targetInterval / 10.0f, 0.01f);
+    auto fineCurve = buildCenterlineDetailed(pts, fineInterval, equalMidpoint);
+    if (fineCurve.size() < 2)
+        return fineCurve;
+
+    out.push_back(fineCurve.front());
+
+    float accumulated = 0.0f;
+    for (size_t i = 0; i + 1 < fineCurve.size(); ++i) {
+        CurvePt a = fineCurve[i];
+        CurvePt b = fineCurve[i + 1];
+        float segLen = glm::distance(a.pos, b.pos);
+        if (segLen < 1e-6f)
+            continue;
+
+        float remaining = targetInterval - accumulated;
+        while (remaining <= segLen) {
+            float t = remaining / segLen;
+            CurvePt sample;
+            sample.pos = glm::mix(a.pos, b.pos, t);
+            sample.kind = a.kind;
+            sample.verticalKind = a.verticalKind;
+            out.push_back(sample);
+            a = sample;
+            segLen -= remaining;
+            accumulated = 0.0f;
+            remaining = targetInterval;
+        }
+        accumulated += segLen;
+    }
+
+    if (glm::distance(out.back().pos, fineCurve.back().pos) > 1e-4f)
+        out.push_back(fineCurve.back());
 
     return out;
 }

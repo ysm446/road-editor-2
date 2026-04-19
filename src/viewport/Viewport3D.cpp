@@ -828,9 +828,10 @@ int Viewport3D::pickRoad(const QPoint& screenPos) const {
 
     for (int ri = 0; ri < static_cast<int>(m_network.roads.size()); ++ri) {
         const auto& road = m_network.roads[ri];
-        auto baseCurve = ClothoidGen::buildCenterline(
-            road.points, std::max(road.segmentLength, 0.01f), road.equalMidpoint);
-        auto curve = VerticalCurveGen::apply(road, baseCurve, std::max(road.segmentLength, 0.01f));
+        const float sampleInterval = std::max(road.segmentLength, 0.01f);
+        auto baseCurve = ClothoidGen::buildAndResample(
+            road.points, sampleInterval, road.equalMidpoint);
+        auto curve = VerticalCurveGen::apply(road, baseCurve, sampleInterval);
         for (size_t i = 0; i + 1 < curve.size(); ++i) {
             auto [sa, okA] = project(curve[i]);
             auto [sb, okB] = project(curve[i + 1]);
@@ -886,7 +887,7 @@ int Viewport3D::pickIntersection(const QPoint& screenPos) const {
 
 glm::vec3 Viewport3D::sampleRoadPosition(const Road& road, float u) const {
     const float sampleInterval = std::max(road.segmentLength, 0.01f);
-    auto baseCurve = ClothoidGen::buildCenterline(road.points, sampleInterval, road.equalMidpoint);
+    auto baseCurve = ClothoidGen::buildAndResample(road.points, sampleInterval, road.equalMidpoint);
     auto curve = VerticalCurveGen::apply(road, baseCurve, sampleInterval);
     if (curve.empty()) return {};
     if (curve.size() == 1) return curve.front();
@@ -1005,7 +1006,7 @@ bool Viewport3D::findNearestRoadU(const QPoint& screenPos, int roadIdx, float& o
     if (roadIdx < 0 || roadIdx >= (int)m_network.roads.size()) return false;
     const auto& road = m_network.roads[roadIdx];
     const float sampleInterval = std::max(road.segmentLength, 0.01f);
-    auto baseCurve = ClothoidGen::buildCenterline(road.points, sampleInterval, road.equalMidpoint);
+    auto baseCurve = ClothoidGen::buildAndResample(road.points, sampleInterval, road.equalMidpoint);
     auto curve = VerticalCurveGen::apply(road, baseCurve, sampleInterval);
     if (curve.size() < 2) return false;
 

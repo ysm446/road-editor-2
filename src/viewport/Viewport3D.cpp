@@ -273,7 +273,6 @@ void Viewport3D::beginPointDrag(const glm::vec3& pivotGlPos) {
             {selPt, m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos});
     }
 
-    m_gizmoDragAxis = TransformGizmo::Axis::None;
     m_dragPlaneY = pivotGlPos;
     m_dragging = !m_pointDragOrigins.empty();
     if (m_dragging)
@@ -546,6 +545,7 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
             m_editor.sel.setSinglePoint(ri, pi);
 
         glm::vec3 pivotGlPos = selectionPivotGlPos();
+        m_gizmoDragAxis = TransformGizmo::Axis::None;
         makeCurrent();
         syncSelectionVisuals();
         doneCurrent();

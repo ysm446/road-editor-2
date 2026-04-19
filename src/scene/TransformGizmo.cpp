@@ -143,7 +143,8 @@ TransformGizmo::Axis TransformGizmo::hitTest(
     const glm::mat4& vpMatrix,
     int vpW, int vpH) const
 {
-    const float kPickRadiusSq = 10.0f * 10.0f;
+    const float kPickRadiusSq = 12.0f * 12.0f;
+    const float kAxisInnerDeadzoneT = 0.22f;
     float bestDist = std::numeric_limits<float>::max();
     Axis  bestAxis = Axis::None;
     float len = glm::distance(vertexGlPos, camGlPos) * kGizmoScale;
@@ -158,14 +159,10 @@ TransformGizmo::Axis TransformGizmo::hitTest(
 
     glm::vec2 mp = {float(screenPos.x()), float(screenPos.y())};
 
-    // Center circle takes priority — check before axes.
-    const float kCenterRadiusSq = 14.0f * 14.0f;
+    // Check axis shafts first so the center handle does not steal nearby hits.
+    // The screen-plane handle is only chosen when the cursor is near the gizmo
+    // center and not sufficiently close to any axis line.
     auto [sc, okC] = project(vertexGlPos);
-    if (okC) {
-        glm::vec2 d = mp - sc;
-        if (glm::dot(d, d) < kCenterRadiusSq)
-            return Axis::Screen;
-    }
 
     for (int i = 0; i < 3; ++i) {
         Axis  a    = static_cast<Axis>(i);
@@ -178,21 +175,34 @@ TransformGizmo::Axis TransformGizmo::hitTest(
         glm::vec2 ab   = sb - sa;
         float     lsq  = glm::dot(ab, ab);
         float     distSq;
+        float     t    = 0.0f;
 
         if (lsq < 1e-6f) {
             glm::vec2 d = mp - sa;
             distSq = glm::dot(d, d);
         } else {
-            float     t    = std::clamp(glm::dot(mp - sa, ab) / lsq, 0.0f, 1.0f);
+            t = std::clamp(glm::dot(mp - sa, ab) / lsq, 0.0f, 1.0f);
             glm::vec2 proj = sa + t * ab;
             glm::vec2 d    = mp - proj;
             distSq = glm::dot(d, d);
         }
 
-        if (distSq < kPickRadiusSq && distSq < bestDist) {
+        if (t >= kAxisInnerDeadzoneT &&
+            distSq < kPickRadiusSq &&
+            distSq < bestDist) {
             bestDist = distSq;
             bestAxis = a;
         }
+    }
+
+    if (bestAxis != Axis::None)
+        return bestAxis;
+
+    const float kCenterRadiusSq = 12.0f * 12.0f;
+    if (okC) {
+        glm::vec2 d = mp - sc;
+        if (glm::dot(d, d) < kCenterRadiusSq)
+            return Axis::Screen;
     }
 
     return bestAxis;

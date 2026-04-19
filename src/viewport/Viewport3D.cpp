@@ -21,7 +21,6 @@
 
 namespace {
 constexpr int kBoxSelectThresholdPx = 4;
-constexpr int kEndpointConnectThresholdPx = 1;
 constexpr int kScreenHandlePriorityRadiusPx = 26;
 
 const char* axisName(TransformGizmo::Axis axis) {
@@ -157,11 +156,12 @@ void Viewport3D::paintGL() {
         glEnable(GL_DEPTH_TEST);
     }
 
-    if ((m_endpointConnectPending || m_endpointConnectDragging) &&
-        m_endpointConnectPoint.roadIdx >= 0 &&
-        m_endpointConnectPoint.roadIdx < (int)m_network.roads.size() &&
-        m_endpointConnectPoint.pointIdx >= 0 &&
-        m_endpointConnectPoint.pointIdx < (int)m_network.roads[m_endpointConnectPoint.roadIdx].points.size()) {
+    if (m_dragging &&
+        m_editor.sel.valid() &&
+        m_editor.sel.points.size() == 1 &&
+        isEndpointControlPoint(m_editor.sel.points.front().roadIdx, m_editor.sel.points.front().pointIdx) &&
+        m_socketHoverIntersectionIdx >= 0 &&
+        m_socketHoverIntersectionIdx < (int)m_network.intersections.size()) {
         auto toNdc = [&](const QPoint& p) -> glm::vec3 {
             float x = (2.0f * static_cast<float>(p.x())) / static_cast<float>(width()) - 1.0f;
             float y = 1.0f - (2.0f * static_cast<float>(p.y())) / static_cast<float>(height());
@@ -169,7 +169,7 @@ void Viewport3D::paintGL() {
         };
         auto project = [&](const glm::vec3& worldPos) -> QPoint {
             glm::vec4 clip = vp * glm::vec4(-worldPos.x, worldPos.y, worldPos.z, 1.0f);
-            if (clip.w <= 0.0f) return m_endpointConnectCurrentPos;
+            if (clip.w <= 0.0f) return QPoint(width() / 2, height() / 2);
             glm::vec3 ndc = glm::vec3(clip) / clip.w;
             return {
                 static_cast<int>((ndc.x + 1.0f) * 0.5f * width()),
@@ -177,58 +177,42 @@ void Viewport3D::paintGL() {
             };
         };
 
-        QPoint startPoint = project(
-            m_network.roads[m_endpointConnectPoint.roadIdx].points[m_endpointConnectPoint.pointIdx].pos);
-        QPoint endPoint = m_endpointConnectCurrentPos;
-        if (m_endpointConnectHoverIntersectionIdx >= 0 &&
-            m_endpointConnectHoverIntersectionIdx < (int)m_network.intersections.size()) {
-            const auto& ix = m_network.intersections[m_endpointConnectHoverIntersectionIdx];
-            if (m_endpointConnectHoverSocketIdx >= 0 &&
-                m_endpointConnectHoverSocketIdx < (int)ix.sockets.size()) {
-                endPoint = project(ix.pos + ix.sockets[m_endpointConnectHoverSocketIdx].localPos);
-            }
-        }
-
         m_boxOverlay.begin();
-        m_boxOverlay.addLine(toNdc(startPoint), toNdc(endPoint), {1.0f, 0.85f, 0.15f});
-        if (m_endpointConnectHoverIntersectionIdx >= 0 &&
-            m_endpointConnectHoverIntersectionIdx < (int)m_network.intersections.size()) {
-            const auto& ix = m_network.intersections[m_endpointConnectHoverIntersectionIdx];
-            if (m_endpointConnectHoverSocketIdx >= 0 &&
-                m_endpointConnectHoverSocketIdx < (int)ix.sockets.size()) {
-                const QPoint hp = project(ix.pos + ix.sockets[m_endpointConnectHoverSocketIdx].localPos);
-                const int r = 12;
-                m_boxOverlay.addLine(
-                    toNdc(QPoint(hp.x() - r, hp.y())),
-                    toNdc(QPoint(hp.x() + r, hp.y())),
-                    {1.0f, 0.95f, 0.25f});
-                m_boxOverlay.addLine(
-                    toNdc(QPoint(hp.x(), hp.y() - r)),
-                    toNdc(QPoint(hp.x(), hp.y() + r)),
-                    {1.0f, 0.95f, 0.25f});
-                m_boxOverlay.addLine(
-                    toNdc(QPoint(hp.x() - r, hp.y() - r)),
-                    toNdc(QPoint(hp.x() + r, hp.y() - r)),
-                    {1.0f, 0.95f, 0.25f});
-                m_boxOverlay.addLine(
-                    toNdc(QPoint(hp.x() + r, hp.y() - r)),
-                    toNdc(QPoint(hp.x() + r, hp.y() + r)),
-                    {1.0f, 0.95f, 0.25f});
-                m_boxOverlay.addLine(
-                    toNdc(QPoint(hp.x() + r, hp.y() + r)),
-                    toNdc(QPoint(hp.x() - r, hp.y() + r)),
-                    {1.0f, 0.95f, 0.25f});
-                m_boxOverlay.addLine(
-                    toNdc(QPoint(hp.x() - r, hp.y() + r)),
-                    toNdc(QPoint(hp.x() - r, hp.y() - r)),
-                    {1.0f, 0.95f, 0.25f});
-                m_boxOverlay.addPoint(
-                    glm::vec3(
-                        -(ix.pos + ix.sockets[m_endpointConnectHoverSocketIdx].localPos).x,
-                        (ix.pos + ix.sockets[m_endpointConnectHoverSocketIdx].localPos).y,
-                        (ix.pos + ix.sockets[m_endpointConnectHoverSocketIdx].localPos).z),
-                    {1.0f, 0.95f, 0.25f});
-            }
+        const auto& ix = m_network.intersections[m_socketHoverIntersectionIdx];
+        if (m_socketHoverSocketIdx >= 0 &&
+            m_socketHoverSocketIdx < (int)ix.sockets.size()) {
+            const QPoint hp = project(ix.pos + ix.sockets[m_socketHoverSocketIdx].localPos);
+            const int r = 12;
+            m_boxOverlay.addLine(
+                toNdc(QPoint(hp.x() - r, hp.y())),
+                toNdc(QPoint(hp.x() + r, hp.y())),
+                {1.0f, 0.95f, 0.25f});
+            m_boxOverlay.addLine(
+                toNdc(QPoint(hp.x(), hp.y() - r)),
+                toNdc(QPoint(hp.x(), hp.y() + r)),
+                {1.0f, 0.95f, 0.25f});
+            m_boxOverlay.addLine(
+                toNdc(QPoint(hp.x() - r, hp.y() - r)),
+                toNdc(QPoint(hp.x() + r, hp.y() - r)),
+                {1.0f, 0.95f, 0.25f});
+            m_boxOverlay.addLine(
+                toNdc(QPoint(hp.x() + r, hp.y() - r)),
+                toNdc(QPoint(hp.x() + r, hp.y() + r)),
+                {1.0f, 0.95f, 0.25f});
+            m_boxOverlay.addLine(
+                toNdc(QPoint(hp.x() + r, hp.y() + r)),
+                toNdc(QPoint(hp.x() - r, hp.y() + r)),
+                {1.0f, 0.95f, 0.25f});
+            m_boxOverlay.addLine(
+                toNdc(QPoint(hp.x() - r, hp.y() + r)),
+                toNdc(QPoint(hp.x() - r, hp.y() - r)),
+                {1.0f, 0.95f, 0.25f});
+            m_boxOverlay.addPoint(
+                glm::vec3(
+                    -(ix.pos + ix.sockets[m_socketHoverSocketIdx].localPos).x,
+                    (ix.pos + ix.sockets[m_socketHoverSocketIdx].localPos).y,
+                    (ix.pos + ix.sockets[m_socketHoverSocketIdx].localPos).z),
+                {1.0f, 0.95f, 0.25f});
         }
         m_boxOverlay.upload(this);
         glDisable(GL_DEPTH_TEST);
@@ -400,17 +384,28 @@ void Viewport3D::syncSelectionVisuals() {
 
 void Viewport3D::beginPointDrag(const glm::vec3& pivotGlPos) {
     m_pointDragOrigins.clear();
+    m_socketHoverIntersectionIdx = -1;
+    m_socketHoverSocketIdx = -1;
+    m_editor.pushUndo(m_network);
     for (const auto& selPt : m_editor.sel.points) {
         if (selPt.roadIdx < 0 || selPt.roadIdx >= (int)m_network.roads.size()) continue;
         if (selPt.pointIdx < 0 || selPt.pointIdx >= (int)m_network.roads[selPt.roadIdx].points.size()) continue;
+        if (isEndpointControlPoint(selPt.roadIdx, selPt.pointIdx)) {
+            auto& road = m_network.roads[selPt.roadIdx];
+            if (selPt.pointIdx == 0) {
+                road.startIntersectionId.clear();
+                road.startLink.clear();
+            } else {
+                road.endIntersectionId.clear();
+                road.endLink.clear();
+            }
+        }
         m_pointDragOrigins.push_back(
             {selPt, m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos});
     }
 
     m_dragPlaneY = pivotGlPos;
     m_dragging = !m_pointDragOrigins.empty();
-    if (m_dragging)
-        m_editor.pushUndo(m_network);
 }
 
 void Viewport3D::applySelectedSocketProperties(const QString& name, float yaw, bool enabled) {
@@ -844,12 +839,6 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
 
     if (e->button() != Qt::LeftButton || !m_glReady) return;
 
-    m_endpointConnectPending = false;
-    m_endpointConnectDragging = false;
-    m_endpointConnectHoverIntersectionIdx = -1;
-    m_endpointConnectHoverSocketIdx = -1;
-    m_endpointConnectCurrentPos = e->pos();
-
     appendInputDebugLog(QString("mousePress left pos=(%1,%2) mode=%3 shift=%4 alt=%5")
         .arg(e->pos().x()).arg(e->pos().y())
         .arg(m_editor.mode == ToolMode::Edit ? "Edit" : "Select")
@@ -888,25 +877,6 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
         syncSelectionVisuals();
         doneCurrent();
         m_dragging = false;
-        return;
-    }
-
-    int ri = -1;
-    int pi = -1;
-    if (pickControlPoint(rayOri, rayDir, ri, pi)) {
-        appendInputDebugLog(QString("point pick select-only road=%1 point=%2").arg(ri).arg(pi));
-        m_editor.sel.setSinglePoint(ri, pi);
-        m_gizmoDragAxis = TransformGizmo::Axis::None;
-        makeCurrent();
-        syncSelectionVisuals();
-        doneCurrent();
-        if (isEndpointControlPoint(ri, pi)) {
-            m_endpointConnectPending = true;
-            m_endpointConnectPoint = {ri, pi};
-            m_endpointConnectCurrentPos = e->pos();
-            appendInputDebugLog(QString("endpoint connect pending road=%1 point=%2")
-                .arg(ri).arg(pi));
-        }
         return;
     }
 
@@ -1005,6 +975,18 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
         return;
     }
 
+    int ri = -1;
+    int pi = -1;
+    if (pickControlPoint(rayOri, rayDir, ri, pi)) {
+        appendInputDebugLog(QString("point pick select-only road=%1 point=%2").arg(ri).arg(pi));
+        m_editor.sel.setSinglePoint(ri, pi);
+        m_gizmoDragAxis = TransformGizmo::Axis::None;
+        makeCurrent();
+        syncSelectionVisuals();
+        doneCurrent();
+        return;
+    }
+
     m_boxSelectPending = true;
     m_boxSelecting = false;
     m_boxSelectOrigin = e->pos();
@@ -1052,41 +1034,6 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
         }
         setCursor(Qt::CrossCursor);
         update();
-    }
-
-    if ((m_endpointConnectPending || m_endpointConnectDragging) && (e->buttons() & Qt::LeftButton)) {
-        m_endpointConnectCurrentPos = e->pos();
-        if (m_endpointConnectPending &&
-            (m_endpointConnectCurrentPos - m_leftPressPos).manhattanLength() >= kEndpointConnectThresholdPx) {
-            m_endpointConnectPending = false;
-            m_endpointConnectDragging = true;
-            appendInputDebugLog(QString("endpoint connect drag start road=%1 point=%2")
-                .arg(m_endpointConnectPoint.roadIdx).arg(m_endpointConnectPoint.pointIdx));
-        }
-        if (m_endpointConnectDragging) {
-            int hoverIntersectionIdx = -1;
-            int hoverSocketIdx = -1;
-            if (pickSocket(e->pos(), hoverIntersectionIdx, hoverSocketIdx, 48.0f)) {
-                if (m_endpointConnectHoverIntersectionIdx != hoverIntersectionIdx ||
-                    m_endpointConnectHoverSocketIdx != hoverSocketIdx) {
-                    appendInputDebugLog(QString("endpoint connect hover ix=%1 socket=%2")
-                        .arg(hoverIntersectionIdx).arg(hoverSocketIdx));
-                }
-                m_endpointConnectHoverIntersectionIdx = hoverIntersectionIdx;
-                m_endpointConnectHoverSocketIdx = hoverSocketIdx;
-                m_socketHoverIntersectionIdx = hoverIntersectionIdx;
-                m_socketHoverSocketIdx = hoverSocketIdx;
-            } else {
-                if (m_endpointConnectHoverIntersectionIdx != -1 || m_endpointConnectHoverSocketIdx != -1)
-                    appendInputDebugLog("endpoint connect hover cleared");
-                m_endpointConnectHoverIntersectionIdx = -1;
-                m_endpointConnectHoverSocketIdx = -1;
-                m_socketHoverIntersectionIdx = -1;
-                m_socketHoverSocketIdx = -1;
-            }
-            update();
-        }
-        return;
     }
 
     if (m_dragging && !(e->modifiers() & Qt::AltModifier)) {
@@ -1152,6 +1099,25 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
                 for (const auto& origin : m_pointDragOrigins) {
                     auto& pos = m_network.roads[origin.point.roadIdx].points[origin.point.pointIdx].pos;
                     pos = origin.pos + deltaWorld;
+                }
+            }
+
+            m_socketHoverIntersectionIdx = -1;
+            m_socketHoverSocketIdx = -1;
+            if (m_gizmoDragAxis == TransformGizmo::Axis::Screen &&
+                m_editor.sel.points.size() == 1) {
+                const auto& selPt = m_editor.sel.points.front();
+                if (isEndpointControlPoint(selPt.roadIdx, selPt.pointIdx)) {
+                    int hoverIntersectionIdx = -1;
+                    int hoverSocketIdx = -1;
+                    if (pickSocket(e->pos(), hoverIntersectionIdx, hoverSocketIdx, 48.0f)) {
+                        m_socketHoverIntersectionIdx = hoverIntersectionIdx;
+                        m_socketHoverSocketIdx = hoverSocketIdx;
+                        const auto& ix = m_network.intersections[hoverIntersectionIdx];
+                        const auto& socket = ix.sockets[hoverSocketIdx];
+                        m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos =
+                            ix.pos + socket.localPos;
+                    }
                 }
             }
 
@@ -1276,32 +1242,25 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
 void Viewport3D::mouseReleaseEvent(QMouseEvent* e) {
     if (e->button() == Qt::LeftButton) {
         m_leftButtonDown = false;
-        if (m_endpointConnectDragging &&
-            (m_endpointConnectHoverIntersectionIdx < 0 || m_endpointConnectHoverSocketIdx < 0)) {
-            pickSocket(
-                e->pos(),
-                m_endpointConnectHoverIntersectionIdx,
-                m_endpointConnectHoverSocketIdx,
-                56.0f);
+        if (m_dragging &&
+            m_editor.sel.valid() &&
+            m_editor.sel.points.size() == 1 &&
+            isEndpointControlPoint(m_editor.sel.points.front().roadIdx, m_editor.sel.points.front().pointIdx)) {
+            int hoverIntersectionIdx = m_socketHoverIntersectionIdx;
+            int hoverSocketIdx = m_socketHoverSocketIdx;
+            if (m_gizmoDragAxis == TransformGizmo::Axis::Screen &&
+                (hoverIntersectionIdx < 0 || hoverSocketIdx < 0)) {
+                pickSocket(e->pos(), hoverIntersectionIdx, hoverSocketIdx, 56.0f);
+            }
+            if (hoverIntersectionIdx >= 0 && hoverSocketIdx >= 0) {
+                const auto& selPt = m_editor.sel.points.front();
+                connectEndpointToSocket(
+                    selPt.roadIdx,
+                    selPt.pointIdx,
+                    hoverIntersectionIdx,
+                    hoverSocketIdx);
+            }
         }
-        if (m_endpointConnectDragging &&
-            m_endpointConnectHoverIntersectionIdx >= 0 &&
-            m_endpointConnectHoverSocketIdx >= 0) {
-            appendInputDebugLog(QString("endpoint connect commit road=%1 point=%2 ix=%3 socket=%4")
-                .arg(m_endpointConnectPoint.roadIdx)
-                .arg(m_endpointConnectPoint.pointIdx)
-                .arg(m_endpointConnectHoverIntersectionIdx)
-                .arg(m_endpointConnectHoverSocketIdx));
-            connectEndpointToSocket(
-                m_endpointConnectPoint.roadIdx,
-                m_endpointConnectPoint.pointIdx,
-                m_endpointConnectHoverIntersectionIdx,
-                m_endpointConnectHoverSocketIdx);
-        }
-        m_endpointConnectPending = false;
-        m_endpointConnectDragging = false;
-        m_endpointConnectHoverIntersectionIdx = -1;
-        m_endpointConnectHoverSocketIdx = -1;
         m_socketHoverIntersectionIdx = -1;
         m_socketHoverSocketIdx = -1;
         appendInputDebugLog(QString("mouseRelease left pos=(%1,%2) pending=%3 selecting=%4")

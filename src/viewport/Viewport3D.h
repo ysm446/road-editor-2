@@ -115,12 +115,6 @@ private:
     int       m_socketDragIntersectionIdx = -1;
     int       m_socketDragSocketIdx = -1;
     glm::vec3 m_socketDragOrigLocalPos = {0, 0, 0};
-    bool      m_endpointConnectPending = false;
-    bool      m_endpointConnectDragging = false;
-    SelectedPoint m_endpointConnectPoint;
-    QPoint    m_endpointConnectCurrentPos;
-    int       m_endpointConnectHoverIntersectionIdx = -1;
-    int       m_endpointConnectHoverSocketIdx = -1;
     int       m_socketHoverIntersectionIdx = -1;
     int       m_socketHoverSocketIdx = -1;
 

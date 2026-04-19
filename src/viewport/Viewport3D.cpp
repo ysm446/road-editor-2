@@ -918,8 +918,16 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
     glm::vec3 rayOriGl = cameraGlPos();
 
     if (m_editor.mode == ToolMode::Select) {
-        int ri = pickRoad(e->pos());
-        if (ri >= 0) {
+        int socketIntersectionIdx = -1;
+        int socketIdx = -1;
+        int ixIdx = -1;
+        int ri = -1;
+
+        if (pickSocket(e->pos(), socketIntersectionIdx, socketIdx)) {
+            m_editor.sel.setIntersection(socketIntersectionIdx, socketIdx);
+        } else if ((ixIdx = pickIntersection(e->pos())) >= 0) {
+            m_editor.sel.setIntersection(ixIdx);
+        } else if ((ri = pickRoad(e->pos())) >= 0) {
             m_editor.sel.clear();
             m_editor.sel.roadIdx = ri;
         } else {

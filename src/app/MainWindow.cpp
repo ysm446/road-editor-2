@@ -119,13 +119,6 @@ void MainWindow::setupToolBar() {
         m_viewport->setToolMode(ToolMode::Edit);
     });
 
-    tb->addSeparator();
-
-    m_wireframeAct = tb->addAction("Wireframe");
-    m_wireframeAct->setCheckable(true);
-    m_wireframeAct->setToolTip("Toggle wireframe display  [W]");
-    m_wireframeAct->setShortcut(Qt::Key_W);
-    connect(m_wireframeAct, &QAction::toggled, m_viewport, &Viewport3D::setWireframe);
 }
 
 void MainWindow::setupMenuBar() {
@@ -149,7 +142,13 @@ void MainWindow::setupMenuBar() {
     connect(exitAct, &QAction::triggered, qApp, &QApplication::quit);
 
     menuBar()->addMenu("&Edit");
-    menuBar()->addMenu("&View");
+
+    auto* view = menuBar()->addMenu("&View");
+    m_wireframeAct = view->addAction("Wireframe");
+    m_wireframeAct->setCheckable(true);
+    m_wireframeAct->setToolTip("Toggle wireframe display  [W]");
+    m_wireframeAct->setShortcut(Qt::Key_W);
+    connect(m_wireframeAct, &QAction::toggled, m_viewport, &Viewport3D::setWireframe);
 }
 
 void MainWindow::openFile() {

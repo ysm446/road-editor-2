@@ -7,10 +7,12 @@
 // Segment type tag for each point in the detailed centerline.
 // The kind describes the curve type of the segment STARTING at that point.
 enum class SegKind { Straight, Clothoid, Arc };
+enum class VerticalSegKind { Other, Crest, Sag };
 
 struct CurvePt {
     glm::vec3 pos;
     SegKind   kind = SegKind::Straight;
+    VerticalSegKind verticalKind = VerticalSegKind::Other;
 };
 
 namespace ClothoidGen {

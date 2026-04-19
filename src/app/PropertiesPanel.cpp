@@ -94,6 +94,32 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     meshForm->addRow("Midpoint split:", m_equalMidpointCheck);
     root->addWidget(m_meshGroup);
 
+    m_verticalCurveGroup = new QGroupBox("Vertical Curve", this);
+    auto* verticalForm = new QFormLayout(m_verticalCurveGroup);
+    verticalForm->setLabelAlignment(Qt::AlignRight);
+
+    m_verticalUCoordSpin = new QDoubleSpinBox(this);
+    m_verticalUCoordSpin->setRange(0.0, 1.0);
+    m_verticalUCoordSpin->setDecimals(4);
+    m_verticalUCoordSpin->setSingleStep(0.01);
+    verticalForm->addRow("U:", m_verticalUCoordSpin);
+
+    m_verticalVclSpin = new QDoubleSpinBox(this);
+    m_verticalVclSpin->setRange(0.0, 10000.0);
+    m_verticalVclSpin->setDecimals(2);
+    m_verticalVclSpin->setSuffix(" m");
+    verticalForm->addRow("VCL:", m_verticalVclSpin);
+
+    m_verticalOffsetSpin = new QDoubleSpinBox(this);
+    m_verticalOffsetSpin->setRange(-1000.0, 1000.0);
+    m_verticalOffsetSpin->setDecimals(2);
+    m_verticalOffsetSpin->setSuffix(" m");
+    verticalForm->addRow("Offset:", m_verticalOffsetSpin);
+
+    m_removeVerticalCurveButton = new QPushButton("Remove Point", this);
+    verticalForm->addRow(m_removeVerticalCurveButton);
+    root->addWidget(m_verticalCurveGroup);
+
     m_socketGroup = new QGroupBox("Socket", this);
     auto* socketForm = new QFormLayout(m_socketGroup);
     socketForm->setLabelAlignment(Qt::AlignRight);
@@ -147,6 +173,14 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
             this, QOverload<>::of(&PropertiesPanel::applyChanges));
     connect(m_equalMidpointCheck, &QCheckBox::toggled,
             this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_verticalUCoordSpin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyVerticalCurveChanges));
+    connect(m_verticalVclSpin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyVerticalCurveChanges));
+    connect(m_verticalOffsetSpin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyVerticalCurveChanges));
+    connect(m_removeVerticalCurveButton, &QPushButton::clicked,
+            this, &PropertiesPanel::removeVerticalCurve);
     connect(m_socketNameEdit, &QLineEdit::editingFinished,
             this, &PropertiesPanel::applySocketChanges);
     connect(m_socketYawSpin, &QDoubleSpinBox::valueChanged,
@@ -161,6 +195,7 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     root->addStretch();
 
     setRoadEnabled(false);
+    setVerticalCurveEnabled(false);
     setSocketEnabled(false);
 }
 
@@ -175,7 +210,7 @@ void PropertiesPanel::setNetwork(const RoadNetwork* net) {
 void PropertiesPanel::onSelectionChanged(int roadIdx) {
     m_roadIdx = roadIdx;
     if (!m_net || roadIdx < 0 || roadIdx >= (int)m_net->roads.size()) {
-        if (m_socketIdx < 0) {
+        if (m_socketIdx < 0 && m_verticalCurveIdx < 0) {
             m_nameLabel->setText("—");
             setRoadEnabled(false);
         }
@@ -186,25 +221,46 @@ void PropertiesPanel::onSelectionChanged(int roadIdx) {
 }
 
 void PropertiesPanel::onSelectionStateChanged(const Selection& sel) {
+    m_roadIdx = sel.roadIdx;
+    m_verticalCurveIdx = sel.verticalCurveIdx;
     m_intersectionIdx = sel.intersectionIdx;
     m_socketIdx = sel.socketIdx;
-    if (!m_net || !sel.hasSocket() ||
-        sel.intersectionIdx < 0 || sel.intersectionIdx >= (int)m_net->intersections.size()) {
-        if (m_roadIdx < 0) {
-            m_nameLabel->setText("—");
-            setSocketEnabled(false);
-        } else {
-            setSocketEnabled(false);
-        }
+
+    if (m_net && sel.hasVerticalCurve() &&
+        sel.roadIdx >= 0 && sel.roadIdx < (int)m_net->roads.size()) {
+        populateVerticalCurve(m_net->roads[sel.roadIdx], sel.verticalCurveIdx);
+        setVerticalCurveEnabled(true);
+        setSocketEnabled(false);
+        setRoadEnabled(false);
         return;
     }
-    populateSocket(m_net->intersections[sel.intersectionIdx], sel.socketIdx);
-    setSocketEnabled(true);
+
+    setVerticalCurveEnabled(false);
+
+    if (m_net && sel.hasSocket() &&
+        sel.intersectionIdx >= 0 && sel.intersectionIdx < (int)m_net->intersections.size()) {
+        populateSocket(m_net->intersections[sel.intersectionIdx], sel.socketIdx);
+        setSocketEnabled(true);
+        setRoadEnabled(false);
+        return;
+    }
+
+    setSocketEnabled(false);
+    if (m_net && m_roadIdx >= 0 && m_roadIdx < (int)m_net->roads.size()) {
+        populate(m_net->roads[m_roadIdx]);
+        setRoadEnabled(true);
+    } else {
+        m_nameLabel->setText("—");
+        setRoadEnabled(false);
+    }
 }
 
 void PropertiesPanel::onNetworkChanged() {
     if (m_net && m_roadIdx >= 0 && m_roadIdx < (int)m_net->roads.size())
         populate(m_net->roads[m_roadIdx]);
+    if (m_net && m_verticalCurveIdx >= 0 &&
+        m_roadIdx >= 0 && m_roadIdx < (int)m_net->roads.size())
+        populateVerticalCurve(m_net->roads[m_roadIdx], m_verticalCurveIdx);
     if (m_net && m_socketIdx >= 0 &&
         m_intersectionIdx >= 0 && m_intersectionIdx < (int)m_net->intersections.size())
         populateSocket(m_net->intersections[m_intersectionIdx], m_socketIdx);
@@ -272,6 +328,28 @@ void PropertiesPanel::populateSocket(const Intersection& ix, int socketIdx) {
     m_socketEnabledCheck->blockSignals(false);
 }
 
+void PropertiesPanel::populateVerticalCurve(const Road& road, int verticalCurveIdx) {
+    if (verticalCurveIdx < 0 || verticalCurveIdx >= (int)road.verticalCurve.size()) return;
+
+    const auto& point = road.verticalCurve[verticalCurveIdx];
+    QString roadName = road.name.empty()
+        ? QString::fromStdString(road.id)
+        : QString::fromStdString(road.name);
+    m_nameLabel->setText(roadName + QString(" / Vertical %1").arg(verticalCurveIdx));
+
+    m_verticalUCoordSpin->blockSignals(true);
+    m_verticalVclSpin->blockSignals(true);
+    m_verticalOffsetSpin->blockSignals(true);
+
+    m_verticalUCoordSpin->setValue(point.u);
+    m_verticalVclSpin->setValue(point.vcl);
+    m_verticalOffsetSpin->setValue(point.offset);
+
+    m_verticalUCoordSpin->blockSignals(false);
+    m_verticalVclSpin->blockSignals(false);
+    m_verticalOffsetSpin->blockSignals(false);
+}
+
 void PropertiesPanel::setRoadEnabled(bool on) {
     m_speedGroup->setVisible(on);
     m_laneGroup->setVisible(on);
@@ -293,6 +371,14 @@ void PropertiesPanel::setSocketEnabled(bool on) {
     m_socketEnabledCheck->setEnabled(on);
     m_addSocketButton->setEnabled(on);
     m_removeSocketButton->setEnabled(on);
+}
+
+void PropertiesPanel::setVerticalCurveEnabled(bool on) {
+    m_verticalCurveGroup->setVisible(on);
+    m_verticalUCoordSpin->setEnabled(on);
+    m_verticalVclSpin->setEnabled(on);
+    m_verticalOffsetSpin->setEnabled(on);
+    m_removeVerticalCurveButton->setEnabled(on);
 }
 
 void PropertiesPanel::applyChanges() {
@@ -322,6 +408,21 @@ void PropertiesPanel::applySocketChanges() {
         m_socketNameEdit->text(),
         static_cast<float>(m_socketYawSpin->value() * 3.14159265358979323846 / 180.0),
         m_socketEnabledCheck->isChecked());
+}
+
+void PropertiesPanel::applyVerticalCurveChanges() {
+    if (!m_net || m_roadIdx < 0 || m_verticalCurveIdx < 0) return;
+    emit selectedVerticalCurveModified(
+        m_roadIdx,
+        m_verticalCurveIdx,
+        static_cast<float>(m_verticalUCoordSpin->value()),
+        static_cast<float>(m_verticalVclSpin->value()),
+        static_cast<float>(m_verticalOffsetSpin->value()));
+}
+
+void PropertiesPanel::removeVerticalCurve() {
+    if (!m_net || m_roadIdx < 0 || m_verticalCurveIdx < 0) return;
+    emit removeSelectedVerticalCurveRequested(m_roadIdx, m_verticalCurveIdx);
 }
 
 void PropertiesPanel::addSocket() {

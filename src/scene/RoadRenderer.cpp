@@ -1,6 +1,7 @@
 #include "RoadRenderer.h"
 #include "../generator/RoadMeshGen.h"
 #include "../generator/ClothoidGen.h"
+#include "../generator/VerticalCurveGen.h"
 #include "../generator/IntersectionMeshGen.h"
 #include <set>
 #include <glm/gtc/matrix_transform.hpp>
@@ -26,12 +27,20 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     const glm::vec3 kStraight  = {1.0f, 1.0f, 1.0f};
     const glm::vec3 kClothoid  = {1.0f, 0.55f, 0.15f};
     const glm::vec3 kArc       = {0.2f, 0.9f, 0.2f};
+    const glm::vec3 kVerticalCrest = {1.0f, 0.55f, 0.15f};
+    const glm::vec3 kVerticalSag   = {0.45f, 0.85f, 1.0f};
     const glm::vec3 kNode      = {0.35f, 0.90f, 0.45f};
     const glm::vec3 kSocketLine = {0.55f, 0.65f, 0.90f};
     const glm::vec3 kSocketPoint = {0.70f, 0.80f, 1.00f};
     const float     kCross     = 5.0f;
 
-    auto kindColor = [&](SegKind k) -> const glm::vec3& {
+    auto kindColor = [&](const CurvePt& p) -> const glm::vec3& {
+        if (m_verticalCurvePreviewColors) {
+            if (p.verticalKind == VerticalSegKind::Crest) return kVerticalCrest;
+            if (p.verticalKind == VerticalSegKind::Sag)   return kVerticalSag;
+            return kStraight;
+        }
+        SegKind k = p.kind;
         if (k == SegKind::Arc)      return kArc;
         if (k == SegKind::Clothoid) return kClothoid;
         return kStraight;
@@ -40,11 +49,12 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     m_roads.begin();
     for (const auto& road : net.roads) {
         if (road.points.size() < 2) continue;
-        auto curve = ClothoidGen::buildCenterlineDetailed(
+        auto baseCurve = ClothoidGen::buildCenterlineDetailed(
             road.points, road.segmentLength, road.equalMidpoint);
+        auto curve = VerticalCurveGen::applyDetailed(road, baseCurve, road.segmentLength);
         for (size_t i = 0; i + 1 < curve.size(); ++i)
             m_roads.addLine(toGL(curve[i].pos), toGL(curve[i + 1].pos),
-                            kindColor(curve[i].kind));
+                            kindColor(curve[i]));
     }
     m_roads.upload(f);
 
@@ -126,9 +136,12 @@ void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
     for (int roadIdx : selectedRoads) {
         if (roadIdx < 0 || roadIdx >= (int)net.roads.size()) continue;
         const auto& road = net.roads[roadIdx];
-        for (size_t i = 0; i + 1 < road.points.size(); ++i)
-            m_selRoad.addLine(toGL(road.points[i].pos),
-                              toGL(road.points[i + 1].pos), kSelRoad);
+        auto baseCurve = ClothoidGen::buildCenterlineDetailed(
+            road.points, road.segmentLength, road.equalMidpoint);
+        auto curve = VerticalCurveGen::applyDetailed(road, baseCurve, road.segmentLength);
+        for (size_t i = 0; i + 1 < curve.size(); ++i)
+            m_selRoad.addLine(toGL(curve[i].pos),
+                              toGL(curve[i + 1].pos), kSelRoad);
     }
     m_selRoad.upload(f);
 

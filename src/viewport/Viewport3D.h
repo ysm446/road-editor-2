@@ -33,6 +33,8 @@ public:
 public slots:
     void setToolMode(ToolMode m);
     void applyRoadProperties(int roadIdx, RoadProperties props);
+    void applySelectedVerticalCurveProperties(int roadIdx, int curveIdx, float u, float vcl, float offset);
+    void removeSelectedVerticalCurve(int roadIdx, int curveIdx);
     void setWireframe(bool on);
     void applySelectedSocketProperties(const QString& name, float yaw, bool enabled);
     void addSocketToSelectedIntersection();
@@ -61,6 +63,9 @@ private:
     glm::vec3 screenToGlAtDepth(const QPoint& p, float ndcZ) const;
     bool pickControlPoint(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
                           int& outRoadIdx, int& outPointIdx);
+    bool pickVerticalCurvePoint(const QPoint& screenPos, int& outRoadIdx, int& outCurveIdx) const;
+    bool findNearestRoadU(const QPoint& screenPos, int roadIdx, float& outU) const;
+    glm::vec3 sampleRoadPosition(const Road& road, float u) const;
     bool pickEndpointControlPoint(const QPoint& screenPos, int& outRoadIdx, int& outPointIdx,
                                   float pickRadiusPx) const;
     bool pickSocket(const QPoint& screenPos, int& outIntersectionIdx, int& outSocketIdx) const;
@@ -121,6 +126,9 @@ private:
     int       m_socketHoverSocketIdx = -1;
     int       m_endpointHoverRoadIdx = -1;
     int       m_endpointHoverPointIdx = -1;
+    bool      m_verticalCurveDragging = false;
+    int       m_verticalCurveDragRoad = -1;
+    int       m_verticalCurveDragPoint = -1;
 
     // Box selection state
     bool      m_boxSelectPending = false;

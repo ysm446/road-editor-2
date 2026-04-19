@@ -25,6 +25,7 @@ private:
 
     QAction* m_selectModeAct  = nullptr;
     QAction* m_editModeAct    = nullptr;
+    QAction* m_verticalModeAct = nullptr;
     QAction* m_wireframeAct   = nullptr;
 
     QString m_currentPath;

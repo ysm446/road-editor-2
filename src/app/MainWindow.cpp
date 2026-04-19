@@ -50,6 +50,10 @@ MainWindow::MainWindow(QWidget* parent)
     // Wire properties Apply → write back road values and rebuild mesh
     connect(m_properties, &PropertiesPanel::roadModified,
             m_viewport,   &Viewport3D::applyRoadProperties);
+    connect(m_properties, &PropertiesPanel::selectedVerticalCurveModified,
+            m_viewport,   &Viewport3D::applySelectedVerticalCurveProperties);
+    connect(m_properties, &PropertiesPanel::removeSelectedVerticalCurveRequested,
+            m_viewport,   &Viewport3D::removeSelectedVerticalCurve);
     connect(m_properties, &PropertiesPanel::selectedSocketModified,
             m_viewport,   &Viewport3D::applySelectedSocketProperties);
     connect(m_properties, &PropertiesPanel::addSocketRequested,
@@ -112,11 +116,20 @@ void MainWindow::setupToolBar() {
     m_editModeAct->setShortcut(Qt::Key_E);
     group->addAction(m_editModeAct);
 
+    m_verticalModeAct = tb->addAction("Vertical");
+    m_verticalModeAct->setCheckable(true);
+    m_verticalModeAct->setToolTip("Edit vertical curve points  [V]");
+    m_verticalModeAct->setShortcut(Qt::Key_V);
+    group->addAction(m_verticalModeAct);
+
     connect(m_selectModeAct, &QAction::triggered, this, [this]{
         m_viewport->setToolMode(ToolMode::Select);
     });
     connect(m_editModeAct, &QAction::triggered, this, [this]{
         m_viewport->setToolMode(ToolMode::Edit);
+    });
+    connect(m_verticalModeAct, &QAction::triggered, this, [this]{
+        m_viewport->setToolMode(ToolMode::VerticalCurve);
     });
 
 }

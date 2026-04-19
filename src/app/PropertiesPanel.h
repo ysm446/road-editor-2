@@ -42,18 +42,23 @@ public slots:
 
 private slots:
     void applyChanges();
+    void applyVerticalCurveChanges();
     void applySocketChanges();
+    void removeVerticalCurve();
     void addSocket();
     void removeSocket();
 
 private:
     void setRoadEnabled(bool on);
+    void setVerticalCurveEnabled(bool on);
     void setSocketEnabled(bool on);
     void populate(const Road& road);
+    void populateVerticalCurve(const Road& road, int verticalCurveIdx);
     void populateSocket(const Intersection& ix, int socketIdx);
 
     const RoadNetwork* m_net     = nullptr;
     int                m_roadIdx = -1;
+    int                m_verticalCurveIdx = -1;
     int                m_intersectionIdx = -1;
     int                m_socketIdx = -1;
 
@@ -76,6 +81,11 @@ private:
 
     QDoubleSpinBox* m_segmentLengthSpin;
     QCheckBox*      m_equalMidpointCheck;
+    QGroupBox*      m_verticalCurveGroup;
+    QDoubleSpinBox* m_verticalUCoordSpin;
+    QDoubleSpinBox* m_verticalVclSpin;
+    QDoubleSpinBox* m_verticalOffsetSpin;
+    QPushButton*    m_removeVerticalCurveButton;
     QGroupBox*      m_socketGroup;
     QLineEdit*      m_socketNameEdit;
     QDoubleSpinBox* m_socketYawSpin;
@@ -85,6 +95,8 @@ private:
 
 signals:
     void roadModified(int roadIdx, RoadProperties props);
+    void selectedVerticalCurveModified(int roadIdx, int curveIdx, float u, float vcl, float offset);
+    void removeSelectedVerticalCurveRequested(int roadIdx, int curveIdx);
     void selectedSocketModified(const QString& name, float yaw, bool enabled);
     void addSocketRequested();
     void removeSocketRequested();

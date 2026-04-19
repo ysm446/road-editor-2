@@ -1,6 +1,7 @@
 #include "Viewport3D.h"
 #include "BuildConfig.h"
 #include "../generator/ClothoidGen.h"
+#include "../generator/VerticalCurveGen.h"
 #include "../model/Serializer.h"
 #include <QApplication>
 #include <QCoreApplication>
@@ -216,8 +217,10 @@ void Viewport3D::paintGL() {
         }
         m_boxOverlay.upload(this);
         glDisable(GL_DEPTH_TEST);
+        glEnable(GL_PROGRAM_POINT_SIZE);
         m_boxOverlay.draw(this, m_lineShader, glm::mat4(1.0f));
         m_boxOverlay.drawPoints(this, m_pointShader, vp, 24.0f);
+        glDisable(GL_PROGRAM_POINT_SIZE);
         glEnable(GL_DEPTH_TEST);
     }
 
@@ -232,7 +235,29 @@ void Viewport3D::paintGL() {
         m_boxOverlay.addPoint(glm::vec3(-pos.x, pos.y, pos.z), {1.0f, 0.95f, 0.25f});
         m_boxOverlay.upload(this);
         glDisable(GL_DEPTH_TEST);
+        glEnable(GL_PROGRAM_POINT_SIZE);
         m_boxOverlay.drawPoints(this, m_pointShader, vp, 24.0f);
+        glDisable(GL_PROGRAM_POINT_SIZE);
+        glEnable(GL_DEPTH_TEST);
+    }
+
+    if (m_editor.mode == ToolMode::VerticalCurve &&
+        m_editor.sel.roadIdx >= 0 &&
+        m_editor.sel.roadIdx < (int)m_network.roads.size()) {
+        const auto& road = m_network.roads[m_editor.sel.roadIdx];
+        m_boxOverlay.begin();
+        for (int i = 0; i < (int)road.verticalCurve.size(); ++i) {
+            glm::vec3 pos = sampleRoadPosition(road, road.verticalCurve[i].u);
+            glm::vec3 color = (m_editor.sel.hasVerticalCurve() && m_editor.sel.verticalCurveIdx == i)
+                ? glm::vec3(1.0f, 0.55f, 0.0f)
+                : glm::vec3(1.0f, 0.85f, 0.15f);
+            m_boxOverlay.addPoint(glm::vec3(-pos.x, pos.y, pos.z), color);
+        }
+        m_boxOverlay.upload(this);
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_PROGRAM_POINT_SIZE);
+        m_boxOverlay.drawPoints(this, m_pointShader, vp, 18.0f);
+        glDisable(GL_PROGRAM_POINT_SIZE);
         glEnable(GL_DEPTH_TEST);
     }
 
@@ -242,10 +267,17 @@ void Viewport3D::paintGL() {
 void Viewport3D::setToolMode(ToolMode m) {
     m_editor.mode = m;
     m_roadRenderer.setShowPoints(m == ToolMode::Edit);
+    m_roadRenderer.setVerticalCurvePreviewColors(m == ToolMode::VerticalCurve);
     m_boxSelectPending = false;
     m_boxSelecting = false;
     m_boxSelectRoadCandidate = -1;
     m_boxRubberBand->hide();
+    if (m_glReady) {
+        makeCurrent();
+        m_roadRenderer.rebuild(this, m_network);
+        syncSelectionVisuals();
+        doneCurrent();
+    }
     update();
 }
 
@@ -271,6 +303,54 @@ void Viewport3D::applyRoadProperties(int roadIdx, RoadProperties p) {
     road.defaultWidthLaneRight2  = p.widthLaneRight2;
     road.segmentLength           = std::max(p.segmentLength, 0.01f);
     road.equalMidpoint           = p.equalMidpoint;
+    makeCurrent();
+    m_roadRenderer.rebuild(this, m_network);
+    syncSelectionVisuals();
+    doneCurrent();
+    emit networkChanged();
+}
+
+void Viewport3D::applySelectedVerticalCurveProperties(
+    int roadIdx, int curveIdx, float u, float vcl, float offset) {
+    if (roadIdx < 0 || roadIdx >= (int)m_network.roads.size()) return;
+    auto& road = m_network.roads[roadIdx];
+    if (curveIdx < 0 || curveIdx >= (int)road.verticalCurve.size()) return;
+
+    m_editor.pushUndo(m_network);
+    auto point = road.verticalCurve[curveIdx];
+    point.u = std::clamp(u, 0.0f, 1.0f);
+    point.vcl = std::max(vcl, 0.0f);
+    point.offset = offset;
+    road.verticalCurve[curveIdx] = point;
+    std::sort(road.verticalCurve.begin(), road.verticalCurve.end(),
+              [](const VerticalCurvePoint& a, const VerticalCurvePoint& b) { return a.u < b.u; });
+    for (int i = 0; i < (int)road.verticalCurve.size(); ++i) {
+        const auto& p = road.verticalCurve[i];
+        if (std::abs(p.u - point.u) < 1e-5f &&
+            std::abs(p.vcl - point.vcl) < 1e-5f &&
+            std::abs(p.offset - point.offset) < 1e-5f) {
+            m_editor.sel.setVerticalCurve(roadIdx, i);
+            break;
+        }
+    }
+    makeCurrent();
+    m_roadRenderer.rebuild(this, m_network);
+    syncSelectionVisuals();
+    doneCurrent();
+    emit networkChanged();
+}
+
+void Viewport3D::removeSelectedVerticalCurve(int roadIdx, int curveIdx) {
+    if (roadIdx < 0 || roadIdx >= (int)m_network.roads.size()) return;
+    auto& road = m_network.roads[roadIdx];
+    if (curveIdx < 0 || curveIdx >= (int)road.verticalCurve.size()) return;
+
+    m_editor.pushUndo(m_network);
+    road.verticalCurve.erase(road.verticalCurve.begin() + curveIdx);
+    if (road.verticalCurve.empty())
+        m_editor.sel.roadIdx = roadIdx;
+    else
+        m_editor.sel.setVerticalCurve(roadIdx, std::min(curveIdx, (int)road.verticalCurve.size() - 1));
     makeCurrent();
     m_roadRenderer.rebuild(this, m_network);
     syncSelectionVisuals();
@@ -525,9 +605,12 @@ int Viewport3D::pickRoad(const QPoint& screenPos) const {
 
     for (int ri = 0; ri < static_cast<int>(m_network.roads.size()); ++ri) {
         const auto& road = m_network.roads[ri];
-        for (size_t i = 0; i + 1 < road.points.size(); ++i) {
-            auto [sa, okA] = project(road.points[i].pos);
-            auto [sb, okB] = project(road.points[i + 1].pos);
+        auto baseCurve = ClothoidGen::buildCenterline(
+            road.points, std::max(road.segmentLength, 0.01f), road.equalMidpoint);
+        auto curve = VerticalCurveGen::apply(road, baseCurve, std::max(road.segmentLength, 0.01f));
+        for (size_t i = 0; i + 1 < curve.size(); ++i) {
+            auto [sa, okA] = project(curve[i]);
+            auto [sb, okB] = project(curve[i + 1]);
             if (!okA || !okB) continue;
 
             glm::vec2 ab = sb - sa;
@@ -576,6 +659,98 @@ int Viewport3D::pickIntersection(const QPoint& screenPos) const {
         }
     }
     return best;
+}
+
+glm::vec3 Viewport3D::sampleRoadPosition(const Road& road, float u) const {
+    const float sampleInterval = std::max(road.segmentLength, 0.01f);
+    auto baseCurve = ClothoidGen::buildCenterline(road.points, sampleInterval, road.equalMidpoint);
+    auto curve = VerticalCurveGen::apply(road, baseCurve, sampleInterval);
+    if (curve.empty()) return {};
+    if (curve.size() == 1) return curve.front();
+
+    std::vector<float> arc;
+    arc.reserve(curve.size());
+    arc.push_back(0.0f);
+    for (size_t i = 1; i < curve.size(); ++i)
+        arc.push_back(arc.back() + glm::length(curve[i] - curve[i - 1]));
+    float target = std::clamp(u, 0.0f, 1.0f) * arc.back();
+    auto it = std::lower_bound(arc.begin(), arc.end(), target);
+    size_t idx = static_cast<size_t>(std::max<std::ptrdiff_t>(1, it - arc.begin())) - 1;
+    if (idx + 1 >= curve.size()) return curve.back();
+    float span = std::max(arc[idx + 1] - arc[idx], 1e-6f);
+    float t = std::clamp((target - arc[idx]) / span, 0.0f, 1.0f);
+    return glm::mix(curve[idx], curve[idx + 1], t);
+}
+
+bool Viewport3D::pickVerticalCurvePoint(const QPoint& screenPos, int& outRoadIdx, int& outCurveIdx) const {
+    const float kPickRadiusSq = 16.0f * 16.0f;
+    float bestDist = std::numeric_limits<float>::max();
+    outRoadIdx = -1;
+    outCurveIdx = -1;
+
+    glm::mat4 vp = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+    glm::vec2 mp = {float(screenPos.x()), float(screenPos.y())};
+
+    for (int ri = 0; ri < (int)m_network.roads.size(); ++ri) {
+        const auto& road = m_network.roads[ri];
+        for (int ci = 0; ci < (int)road.verticalCurve.size(); ++ci) {
+            glm::vec3 pos = sampleRoadPosition(road, road.verticalCurve[ci].u);
+            glm::vec4 clip = vp * glm::vec4(-pos.x, pos.y, pos.z, 1.0f);
+            if (clip.w <= 0.0f) continue;
+            glm::vec3 ndc = glm::vec3(clip) / clip.w;
+            float sx = (ndc.x + 1.0f) * 0.5f * width();
+            float sy = (1.0f - ndc.y) * 0.5f * height();
+            float dx = sx - mp.x;
+            float dy = sy - mp.y;
+            float distSq = dx * dx + dy * dy;
+            if (distSq < kPickRadiusSq && distSq < bestDist) {
+                bestDist = distSq;
+                outRoadIdx = ri;
+                outCurveIdx = ci;
+            }
+        }
+    }
+
+    return outRoadIdx >= 0;
+}
+
+bool Viewport3D::findNearestRoadU(const QPoint& screenPos, int roadIdx, float& outU) const {
+    if (roadIdx < 0 || roadIdx >= (int)m_network.roads.size()) return false;
+    const auto& road = m_network.roads[roadIdx];
+    const float sampleInterval = std::max(road.segmentLength, 0.01f);
+    auto baseCurve = ClothoidGen::buildCenterline(road.points, sampleInterval, road.equalMidpoint);
+    auto curve = VerticalCurveGen::apply(road, baseCurve, sampleInterval);
+    if (curve.size() < 2) return false;
+
+    std::vector<float> arc;
+    arc.reserve(curve.size());
+    arc.push_back(0.0f);
+    for (size_t i = 1; i < curve.size(); ++i)
+        arc.push_back(arc.back() + glm::length(curve[i] - curve[i - 1]));
+    float total = arc.back();
+    if (total <= 1e-5f) return false;
+
+    glm::mat4 vp = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+    glm::vec2 mp = {float(screenPos.x()), float(screenPos.y())};
+    float bestDist = std::numeric_limits<float>::max();
+    float bestU = 0.0f;
+    for (size_t i = 0; i < curve.size(); ++i) {
+        glm::vec4 clip = vp * glm::vec4(-curve[i].x, curve[i].y, curve[i].z, 1.0f);
+        if (clip.w <= 0.0f) continue;
+        glm::vec3 ndc = glm::vec3(clip) / clip.w;
+        float sx = (ndc.x + 1.0f) * 0.5f * width();
+        float sy = (1.0f - ndc.y) * 0.5f * height();
+        float dx = sx - mp.x;
+        float dy = sy - mp.y;
+        float distSq = dx * dx + dy * dy;
+        if (distSq < bestDist) {
+            bestDist = distSq;
+            bestU = arc[i] / total;
+        }
+    }
+    if (bestDist > 20.0f * 20.0f) return false;
+    outU = bestU;
+    return true;
 }
 
 bool Viewport3D::pickSocket(
@@ -940,6 +1115,59 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
         return;
     }
 
+    if (m_editor.mode == ToolMode::VerticalCurve) {
+        int roadIdx = -1;
+        int curveIdx = -1;
+        if (pickVerticalCurvePoint(e->pos(), roadIdx, curveIdx)) {
+            m_editor.sel.setVerticalCurve(roadIdx, curveIdx);
+            m_verticalCurveDragging = true;
+            m_verticalCurveDragRoad = roadIdx;
+            m_verticalCurveDragPoint = curveIdx;
+            m_editor.pushUndo(m_network);
+        } else {
+            int pickedRoad = pickRoad(e->pos());
+            if (pickedRoad >= 0) {
+                float u = 0.0f;
+                if (m_editor.sel.roadIdx == pickedRoad && findNearestRoadU(e->pos(), pickedRoad, u)) {
+                    auto& road = m_network.roads[pickedRoad];
+                    m_editor.pushUndo(m_network);
+                    road.verticalCurve.push_back({u, 50.0f, 0.0f});
+                    std::sort(road.verticalCurve.begin(), road.verticalCurve.end(),
+                              [](const VerticalCurvePoint& a, const VerticalCurvePoint& b) { return a.u < b.u; });
+                    int newIdx = -1;
+                    for (int i = 0; i < (int)road.verticalCurve.size(); ++i) {
+                        if (std::abs(road.verticalCurve[i].u - u) < 1e-5f &&
+                            std::abs(road.verticalCurve[i].vcl - 50.0f) < 1e-5f &&
+                            std::abs(road.verticalCurve[i].offset) < 1e-5f) {
+                            newIdx = i;
+                            break;
+                        }
+                    }
+                    m_editor.sel.setVerticalCurve(pickedRoad, newIdx);
+                    makeCurrent();
+                    m_roadRenderer.rebuild(this, m_network);
+                    syncSelectionVisuals();
+                    doneCurrent();
+                    emit networkChanged();
+                    update();
+                    return;
+                }
+                m_editor.sel.roadIdx = pickedRoad;
+                m_editor.sel.verticalCurveIdx = -1;
+                m_editor.sel.points.clear();
+                m_editor.sel.intersectionIdx = -1;
+                m_editor.sel.socketIdx = -1;
+            } else {
+                m_editor.sel.clear();
+            }
+        }
+        makeCurrent();
+        syncSelectionVisuals();
+        doneCurrent();
+        update();
+        return;
+    }
+
     if (m_editor.sel.valid() || m_editor.sel.hasIntersection()) {
         glm::vec3 glPos = selectionPivotGlPos();
         glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
@@ -1067,6 +1295,26 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
         m_camera.orbit(static_cast<float>(delta.x()), static_cast<float>(delta.y()));
     if (m_panning)
         m_camera.pan(static_cast<float>(delta.x()), static_cast<float>(delta.y()));
+
+    if (m_verticalCurveDragging && (e->buttons() & Qt::LeftButton)) {
+        if (m_verticalCurveDragRoad >= 0 &&
+            m_verticalCurveDragRoad < (int)m_network.roads.size() &&
+            m_verticalCurveDragPoint >= 0 &&
+            m_verticalCurveDragPoint < (int)m_network.roads[m_verticalCurveDragRoad].verticalCurve.size()) {
+            float u = 0.0f;
+            if (findNearestRoadU(e->pos(), m_verticalCurveDragRoad, u)) {
+                m_network.roads[m_verticalCurveDragRoad].verticalCurve[m_verticalCurveDragPoint].u =
+                    std::clamp(u, 0.0f, 1.0f);
+                makeCurrent();
+                m_roadRenderer.rebuild(this, m_network);
+                syncSelectionVisuals();
+                doneCurrent();
+                emit networkChanged();
+                update();
+            }
+        }
+        return;
+    }
 
     if (!m_boxSelectPending && !m_dragging && m_leftButtonDown &&
         isShiftHeld(e->modifiers())) {
@@ -1318,6 +1566,40 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
 void Viewport3D::mouseReleaseEvent(QMouseEvent* e) {
     if (e->button() == Qt::LeftButton) {
         m_leftButtonDown = false;
+        if (m_verticalCurveDragging) {
+            if (m_verticalCurveDragRoad >= 0 &&
+                m_verticalCurveDragRoad < (int)m_network.roads.size()) {
+                auto& road = m_network.roads[m_verticalCurveDragRoad];
+                if (m_verticalCurveDragPoint >= 0 &&
+                    m_verticalCurveDragPoint < (int)road.verticalCurve.size()) {
+                    auto movedPoint = road.verticalCurve[m_verticalCurveDragPoint];
+                    std::sort(road.verticalCurve.begin(), road.verticalCurve.end(),
+                              [](const VerticalCurvePoint& a, const VerticalCurvePoint& b) { return a.u < b.u; });
+                    int newIdx = -1;
+                    for (int i = 0; i < (int)road.verticalCurve.size(); ++i) {
+                        const auto& p = road.verticalCurve[i];
+                        if (std::abs(p.u - movedPoint.u) < 1e-5f &&
+                            std::abs(p.vcl - movedPoint.vcl) < 1e-5f &&
+                            std::abs(p.offset - movedPoint.offset) < 1e-5f) {
+                            newIdx = i;
+                            break;
+                        }
+                    }
+                    if (newIdx >= 0)
+                        m_editor.sel.setVerticalCurve(m_verticalCurveDragRoad, newIdx);
+                    makeCurrent();
+                    m_roadRenderer.rebuild(this, m_network);
+                    syncSelectionVisuals();
+                    doneCurrent();
+                    emit networkChanged();
+                }
+            }
+            m_verticalCurveDragging = false;
+            m_verticalCurveDragRoad = -1;
+            m_verticalCurveDragPoint = -1;
+            update();
+            return;
+        }
         if (m_dragging &&
             m_editor.sel.valid() &&
             m_editor.sel.points.size() == 1 &&
@@ -1423,6 +1705,13 @@ void Viewport3D::keyPressEvent(QKeyEvent* e) {
         return;
     }
     if (!m_glReady) return;
+
+    if (e->key() == Qt::Key_Delete &&
+        m_editor.mode == ToolMode::VerticalCurve &&
+        m_editor.sel.hasVerticalCurve()) {
+        removeSelectedVerticalCurve(m_editor.sel.roadIdx, m_editor.sel.verticalCurveIdx);
+        return;
+    }
 
     if (e->modifiers() & Qt::ControlModifier) {
         if (e->key() == Qt::Key_Z) {

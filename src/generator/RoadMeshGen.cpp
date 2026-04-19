@@ -1,5 +1,6 @@
 #include "RoadMeshGen.h"
 #include "ClothoidGen.h"
+#include "VerticalCurveGen.h"
 #include <glm/gtc/constants.hpp>
 #include <algorithm>
 
@@ -16,8 +17,7 @@ void RoadMeshGen::generate(const Road&                 road,
     const float sampleInterval = std::max(road.segmentLength, 0.01f);
     std::vector<glm::vec3> worldSamples =
         ClothoidGen::buildCenterline(pts, sampleInterval, road.equalMidpoint);
-
-    if (worldSamples.size() < 2) return;
+    worldSamples = VerticalCurveGen::apply(road, worldSamples, sampleInterval);
 
     if (worldSamples.size() < 2) return;
 

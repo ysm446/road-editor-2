@@ -48,6 +48,22 @@ static json writeSocket(const IntersectionSocket& socket) {
     };
 }
 
+static VerticalCurvePoint readVerticalCurvePoint(const json& j) {
+    VerticalCurvePoint p;
+    p.u = j.value("u", j.value("uCoord", 0.0f));
+    p.vcl = j.value("vcl", 0.0f);
+    p.offset = j.value("offset", 0.0f);
+    return p;
+}
+
+static json writeVerticalCurvePoint(const VerticalCurvePoint& p) {
+    return {
+        {"u", p.u},
+        {"vcl", p.vcl},
+        {"offset", p.offset}
+    };
+}
+
 static std::vector<IntersectionSocket> defaultSockets(float entryDist) {
     const float radius = std::max(entryDist, 12.0f);
     return {
@@ -132,6 +148,9 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
             r.points.push_back(cp);
         }
 
+        for (const auto& jv : jr.value("verticalCurve", json::array()))
+            r.verticalCurve.push_back(readVerticalCurvePoint(jv));
+
         if (!r.startLink.connected())
             r.startIntersectionId.clear();
         if (!r.endLink.connected())
@@ -205,6 +224,8 @@ bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
             });
         }
         jr["point"] = jPoints;
+        for (const auto& p : r.verticalCurve)
+            jr["verticalCurve"].push_back(writeVerticalCurvePoint(p));
         jRoads.push_back(jr);
     }
     doc["roads"] = jRoads;

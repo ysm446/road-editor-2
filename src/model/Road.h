@@ -25,7 +25,17 @@ struct BankAnglePoint {
 
 struct LaneSectionPoint {
     float u = 0.0f;
-    // Extended when lane section format is finalised
+    bool  useLaneLeft2 = false;
+    float widthLaneLeft2 = 3.0f;
+    bool  useLaneLeft1 = true;
+    float widthLaneLeft1 = 3.0f;
+    bool  useLaneCenter = true;
+    float widthLaneCenter = 0.0f;
+    bool  useLaneRight1 = true;
+    float widthLaneRight1 = 3.0f;
+    bool  useLaneRight2 = false;
+    float widthLaneRight2 = 3.0f;
+    float offsetCenter = 0.0f;
 };
 
 struct RoadEndpointLink {

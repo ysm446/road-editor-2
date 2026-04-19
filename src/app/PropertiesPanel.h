@@ -44,9 +44,11 @@ private slots:
     void applyChanges();
     void applyVerticalCurveChanges();
     void applyBankAngleChanges();
+    void applyLaneSectionChanges();
     void applySocketChanges();
     void removeVerticalCurve();
     void removeBankAngle();
+    void removeLaneSection();
     void addSocket();
     void removeSocket();
 
@@ -54,16 +56,19 @@ private:
     void setRoadEnabled(bool on);
     void setVerticalCurveEnabled(bool on);
     void setBankAngleEnabled(bool on);
+    void setLaneSectionEnabled(bool on);
     void setSocketEnabled(bool on);
     void populate(const Road& road);
     void populateVerticalCurve(const Road& road, int verticalCurveIdx);
     void populateBankAngle(const Road& road, int bankAngleIdx);
+    void populateLaneSection(const Road& road, int laneSectionIdx);
     void populateSocket(const Intersection& ix, int socketIdx);
 
     const RoadNetwork* m_net     = nullptr;
     int                m_roadIdx = -1;
     int                m_verticalCurveIdx = -1;
     int                m_bankAngleIdx = -1;
+    int                m_laneSectionIdx = -1;
     int                m_intersectionIdx = -1;
     int                m_socketIdx = -1;
 
@@ -97,6 +102,20 @@ private:
     QCheckBox*      m_bankUseAngleCheck;
     QDoubleSpinBox* m_bankAngleSpin;
     QPushButton*    m_removeBankAngleButton;
+    QGroupBox*      m_laneSectionGroup;
+    QDoubleSpinBox* m_laneSectionUSpin;
+    QCheckBox*      m_laneSectionUseLaneLeft2Check;
+    QDoubleSpinBox* m_laneSectionWidthLaneLeft2Spin;
+    QCheckBox*      m_laneSectionUseLaneLeft1Check;
+    QDoubleSpinBox* m_laneSectionWidthLaneLeft1Spin;
+    QCheckBox*      m_laneSectionUseLaneCenterCheck;
+    QDoubleSpinBox* m_laneSectionWidthLaneCenterSpin;
+    QCheckBox*      m_laneSectionUseLaneRight1Check;
+    QDoubleSpinBox* m_laneSectionWidthLaneRight1Spin;
+    QCheckBox*      m_laneSectionUseLaneRight2Check;
+    QDoubleSpinBox* m_laneSectionWidthLaneRight2Spin;
+    QDoubleSpinBox* m_laneSectionOffsetCenterSpin;
+    QPushButton*    m_removeLaneSectionButton;
     QGroupBox*      m_socketGroup;
     QLineEdit*      m_socketNameEdit;
     QDoubleSpinBox* m_socketYawSpin;
@@ -110,6 +129,15 @@ signals:
     void removeSelectedVerticalCurveRequested(int roadIdx, int curveIdx);
     void selectedBankAngleModified(int roadIdx, int curveIdx, float u, float targetSpeed, bool useAngle, float angle);
     void removeSelectedBankAngleRequested(int roadIdx, int curveIdx);
+    void selectedLaneSectionModified(
+        int roadIdx, int curveIdx, float u,
+        bool useLaneLeft2, float widthLaneLeft2,
+        bool useLaneLeft1, float widthLaneLeft1,
+        bool useLaneCenter, float widthLaneCenter,
+        bool useLaneRight1, float widthLaneRight1,
+        bool useLaneRight2, float widthLaneRight2,
+        float offsetCenter);
+    void removeSelectedLaneSectionRequested(int roadIdx, int curveIdx);
     void selectedSocketModified(const QString& name, float yaw, bool enabled);
     void addSocketRequested();
     void removeSocketRequested();

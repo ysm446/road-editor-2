@@ -7,7 +7,7 @@
 #include <vector>
 #include "../model/RoadNetwork.h"
 
-enum class ToolMode { Select, Edit, VerticalCurve, BankAngle };
+enum class ToolMode { Select, Edit, VerticalCurve, BankAngle, LaneSection };
 enum class EditSubTool { None, CreateRoad, CreateIntersection };
 
 struct SelectedPoint {
@@ -24,6 +24,7 @@ struct Selection {
     int pointIdx        = -1;
     int verticalCurveIdx = -1;
     int bankAngleIdx    = -1;
+    int laneSectionIdx  = -1;
     int intersectionIdx = -1;
     int socketIdx       = -1;
     std::vector<SelectedPoint> points;
@@ -31,6 +32,7 @@ struct Selection {
     bool valid() const           { return !points.empty(); }
     bool hasVerticalCurve() const { return roadIdx >= 0 && verticalCurveIdx >= 0; }
     bool hasBankAngle() const    { return roadIdx >= 0 && bankAngleIdx >= 0; }
+    bool hasLaneSection() const  { return roadIdx >= 0 && laneSectionIdx >= 0; }
     bool hasIntersection() const { return intersectionIdx >= 0; }
     bool hasSocket() const       { return intersectionIdx >= 0 && socketIdx >= 0; }
     bool containsPoint(int selRoadIdx, int selPointIdx) const {
@@ -44,6 +46,7 @@ struct Selection {
         pointIdx = selPointIdx;
         verticalCurveIdx = -1;
         bankAngleIdx = -1;
+        laneSectionIdx = -1;
         intersectionIdx = -1;
         socketIdx = -1;
     }
@@ -54,6 +57,7 @@ struct Selection {
         pointIdx = -1;
         verticalCurveIdx = selVerticalCurveIdx;
         bankAngleIdx = -1;
+        laneSectionIdx = -1;
         intersectionIdx = -1;
         socketIdx = -1;
     }
@@ -64,6 +68,18 @@ struct Selection {
         pointIdx = -1;
         verticalCurveIdx = -1;
         bankAngleIdx = selBankAngleIdx;
+        laneSectionIdx = -1;
+        intersectionIdx = -1;
+        socketIdx = -1;
+    }
+
+    void setLaneSection(int selRoadIdx, int selLaneSectionIdx) {
+        points.clear();
+        roadIdx = selRoadIdx;
+        pointIdx = -1;
+        verticalCurveIdx = -1;
+        bankAngleIdx = -1;
+        laneSectionIdx = selLaneSectionIdx;
         intersectionIdx = -1;
         socketIdx = -1;
     }
@@ -72,6 +88,7 @@ struct Selection {
         points = std::move(newPoints);
         verticalCurveIdx = -1;
         bankAngleIdx = -1;
+        laneSectionIdx = -1;
         intersectionIdx = -1;
         socketIdx = -1;
         if (!points.empty()) {
@@ -89,12 +106,13 @@ struct Selection {
         pointIdx = -1;
         verticalCurveIdx = -1;
         bankAngleIdx = -1;
+        laneSectionIdx = -1;
         intersectionIdx = selIntersectionIdx;
         socketIdx = selSocketIdx;
     }
 
     void clear() {
-        roadIdx = pointIdx = verticalCurveIdx = bankAngleIdx = intersectionIdx = socketIdx = -1;
+        roadIdx = pointIdx = verticalCurveIdx = bankAngleIdx = laneSectionIdx = intersectionIdx = socketIdx = -1;
         points.clear();
     }
 };

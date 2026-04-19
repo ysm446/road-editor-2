@@ -39,6 +39,15 @@ public slots:
     void applySelectedBankAngleProperties(int roadIdx, int curveIdx, float u, float targetSpeed,
                                           bool useAngle, float angle);
     void removeSelectedBankAngle(int roadIdx, int curveIdx);
+    void applySelectedLaneSectionProperties(
+        int roadIdx, int curveIdx, float u,
+        bool useLaneLeft2, float widthLaneLeft2,
+        bool useLaneLeft1, float widthLaneLeft1,
+        bool useLaneCenter, float widthLaneCenter,
+        bool useLaneRight1, float widthLaneRight1,
+        bool useLaneRight2, float widthLaneRight2,
+        float offsetCenter);
+    void removeSelectedLaneSection(int roadIdx, int curveIdx);
     void setWireframe(bool on);
     void applySelectedSocketProperties(const QString& name, float yaw, bool enabled);
     void addSocketToSelectedIntersection();
@@ -71,6 +80,7 @@ private:
                          glm::vec3& outWorldPos) const;
     bool pickVerticalCurvePoint(const QPoint& screenPos, int& outRoadIdx, int& outCurveIdx) const;
     bool pickBankAnglePoint(const QPoint& screenPos, int& outRoadIdx, int& outCurveIdx) const;
+    bool pickLaneSectionPoint(const QPoint& screenPos, int& outRoadIdx, int& outCurveIdx) const;
     bool findNearestRoadU(const QPoint& screenPos, int roadIdx, float& outU) const;
     glm::vec3 sampleRoadPosition(const Road& road, float u) const;
     bool pickEndpointControlPoint(const QPoint& screenPos, int& outRoadIdx, int& outPointIdx,
@@ -141,6 +151,9 @@ private:
     bool      m_bankAngleDragging = false;
     int       m_bankAngleDragRoad = -1;
     int       m_bankAngleDragPoint = -1;
+    bool      m_laneSectionDragging = false;
+    int       m_laneSectionDragRoad = -1;
+    int       m_laneSectionDragPoint = -1;
     glm::vec3 m_createPreviewPos = {0.0f, 0.0f, 0.0f};
     int       m_createHoverIntersectionIdx = -1;
     int       m_createHoverSocketIdx = -1;

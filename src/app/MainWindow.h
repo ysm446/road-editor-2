@@ -27,6 +27,7 @@ private:
     QAction* m_editModeAct    = nullptr;
     QAction* m_verticalModeAct = nullptr;
     QAction* m_bankModeAct    = nullptr;
+    QAction* m_laneModeAct    = nullptr;
     QAction* m_createRoadAct  = nullptr;
     QAction* m_createIntersectionAct = nullptr;
     QAction* m_wireframeAct   = nullptr;

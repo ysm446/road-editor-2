@@ -1,5 +1,6 @@
 #include "IntersectionMeshGen.h"
 #include "ClothoidGen.h"
+#include "LaneSectionGen.h"
 #include <glm/glm.hpp>
 #include <algorithm>
 #include <cmath>
@@ -9,14 +10,10 @@
 // ---------------------------------------------------------------------------
 namespace {
 
-static void laneWidths(const Road& road, float& leftW, float& rightW) {
-    leftW = rightW = 0.0f;
-    if (road.useLaneLeft2)  leftW  += road.defaultWidthLaneLeft2;
-    if (road.useLaneLeft1)  leftW  += road.defaultWidthLaneLeft1;
-    if (road.useLaneCenter) { leftW += road.defaultWidthLaneCenter * 0.5f;
-                              rightW += road.defaultWidthLaneCenter * 0.5f; }
-    if (road.useLaneRight1) rightW += road.defaultWidthLaneRight1;
-    if (road.useLaneRight2) rightW += road.defaultWidthLaneRight2;
+static void laneWidths(const Road& road, float u, float& leftW, float& rightW) {
+    const EvaluatedLaneSection lane = LaneSectionGen::evaluateAtU(road, u);
+    leftW = lane.widthLeft2 + lane.widthLeft1 + lane.widthCenter * 0.5f;
+    rightW = lane.widthRight1 + lane.widthRight2 + lane.widthCenter * 0.5f;
     if (leftW < 1e-4f && rightW < 1e-4f) leftW = rightW = 0.1f;
 }
 
@@ -85,7 +82,7 @@ void IntersectionMeshGen::generate(
         }
 
         float leftW, rightW;
-        laneWidths(road, leftW, rightW);
+        laneWidths(road, atStart ? 0.0f : 1.0f, leftW, rightW);
 
         glm::vec3 binom = glm::cross(worldUp, tangent);
         float bLen = glm::length(binom);

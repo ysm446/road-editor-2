@@ -282,6 +282,26 @@ void Viewport3D::paintGL() {
         glEnable(GL_DEPTH_TEST);
     }
 
+    if (m_editor.mode == ToolMode::LaneSection &&
+        m_editor.sel.roadIdx >= 0 &&
+        m_editor.sel.roadIdx < (int)m_network.roads.size()) {
+        const auto& road = m_network.roads[m_editor.sel.roadIdx];
+        m_boxOverlay.begin();
+        for (int i = 0; i < (int)road.laneSections.size(); ++i) {
+            glm::vec3 pos = sampleRoadPosition(road, road.laneSections[i].u);
+            glm::vec3 color = (m_editor.sel.hasLaneSection() && m_editor.sel.laneSectionIdx == i)
+                ? glm::vec3(1.0f, 0.55f, 0.0f)
+                : glm::vec3(0.3f, 1.0f, 0.45f);
+            m_boxOverlay.addPoint(glm::vec3(-pos.x, pos.y, pos.z), color);
+        }
+        m_boxOverlay.upload(this);
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_PROGRAM_POINT_SIZE);
+        m_boxOverlay.drawPoints(this, m_pointShader, vp, 18.0f);
+        glDisable(GL_PROGRAM_POINT_SIZE);
+        glEnable(GL_DEPTH_TEST);
+    }
+
     if (m_editor.mode == ToolMode::Edit &&
         m_editor.editSubTool != EditSubTool::None) {
         const glm::vec3 color = {0.25f, 0.85f, 1.0f};
@@ -473,6 +493,78 @@ void Viewport3D::removeSelectedBankAngle(int roadIdx, int curveIdx) {
         m_editor.sel.roadIdx = roadIdx;
     else
         m_editor.sel.setBankAngle(roadIdx, std::min(curveIdx, (int)road.bankAngle.size() - 1));
+    makeCurrent();
+    m_roadRenderer.rebuild(this, m_network);
+    syncSelectionVisuals();
+    doneCurrent();
+    emit networkChanged();
+}
+
+void Viewport3D::applySelectedLaneSectionProperties(
+    int roadIdx, int curveIdx, float u,
+    bool useLaneLeft2, float widthLaneLeft2,
+    bool useLaneLeft1, float widthLaneLeft1,
+    bool useLaneCenter, float widthLaneCenter,
+    bool useLaneRight1, float widthLaneRight1,
+    bool useLaneRight2, float widthLaneRight2,
+    float offsetCenter) {
+    if (roadIdx < 0 || roadIdx >= (int)m_network.roads.size()) return;
+    auto& road = m_network.roads[roadIdx];
+    if (curveIdx < 0 || curveIdx >= (int)road.laneSections.size()) return;
+
+    m_editor.pushUndo(m_network);
+    auto point = road.laneSections[curveIdx];
+    point.u = std::clamp(u, 0.0f, 1.0f);
+    point.useLaneLeft2 = useLaneLeft2;
+    point.widthLaneLeft2 = std::max(widthLaneLeft2, 0.0f);
+    point.useLaneLeft1 = useLaneLeft1;
+    point.widthLaneLeft1 = std::max(widthLaneLeft1, 0.0f);
+    point.useLaneCenter = useLaneCenter;
+    point.widthLaneCenter = std::max(widthLaneCenter, 0.0f);
+    point.useLaneRight1 = useLaneRight1;
+    point.widthLaneRight1 = std::max(widthLaneRight1, 0.0f);
+    point.useLaneRight2 = useLaneRight2;
+    point.widthLaneRight2 = std::max(widthLaneRight2, 0.0f);
+    point.offsetCenter = offsetCenter;
+    road.laneSections[curveIdx] = point;
+    std::sort(road.laneSections.begin(), road.laneSections.end(),
+              [](const LaneSectionPoint& a, const LaneSectionPoint& b) { return a.u < b.u; });
+    for (int i = 0; i < (int)road.laneSections.size(); ++i) {
+        const auto& p = road.laneSections[i];
+        if (std::abs(p.u - point.u) < 1e-5f &&
+            p.useLaneLeft2 == point.useLaneLeft2 &&
+            std::abs(p.widthLaneLeft2 - point.widthLaneLeft2) < 1e-5f &&
+            p.useLaneLeft1 == point.useLaneLeft1 &&
+            std::abs(p.widthLaneLeft1 - point.widthLaneLeft1) < 1e-5f &&
+            p.useLaneCenter == point.useLaneCenter &&
+            std::abs(p.widthLaneCenter - point.widthLaneCenter) < 1e-5f &&
+            p.useLaneRight1 == point.useLaneRight1 &&
+            std::abs(p.widthLaneRight1 - point.widthLaneRight1) < 1e-5f &&
+            p.useLaneRight2 == point.useLaneRight2 &&
+            std::abs(p.widthLaneRight2 - point.widthLaneRight2) < 1e-5f &&
+            std::abs(p.offsetCenter - point.offsetCenter) < 1e-5f) {
+            m_editor.sel.setLaneSection(roadIdx, i);
+            break;
+        }
+    }
+    makeCurrent();
+    m_roadRenderer.rebuild(this, m_network);
+    syncSelectionVisuals();
+    doneCurrent();
+    emit networkChanged();
+}
+
+void Viewport3D::removeSelectedLaneSection(int roadIdx, int curveIdx) {
+    if (roadIdx < 0 || roadIdx >= (int)m_network.roads.size()) return;
+    auto& road = m_network.roads[roadIdx];
+    if (curveIdx < 0 || curveIdx >= (int)road.laneSections.size()) return;
+
+    m_editor.pushUndo(m_network);
+    road.laneSections.erase(road.laneSections.begin() + curveIdx);
+    if (road.laneSections.empty())
+        m_editor.sel.roadIdx = roadIdx;
+    else
+        m_editor.sel.setLaneSection(roadIdx, std::min(curveIdx, (int)road.laneSections.size() - 1));
     makeCurrent();
     m_roadRenderer.rebuild(this, m_network);
     syncSelectionVisuals();
@@ -857,6 +949,38 @@ bool Viewport3D::pickBankAnglePoint(const QPoint& screenPos, int& outRoadIdx, in
         const auto& road = m_network.roads[ri];
         for (int ci = 0; ci < (int)road.bankAngle.size(); ++ci) {
             glm::vec3 pos = sampleRoadPosition(road, road.bankAngle[ci].u);
+            glm::vec4 clip = vp * glm::vec4(-pos.x, pos.y, pos.z, 1.0f);
+            if (clip.w <= 0.0f) continue;
+            glm::vec3 ndc = glm::vec3(clip) / clip.w;
+            float sx = (ndc.x + 1.0f) * 0.5f * width();
+            float sy = (1.0f - ndc.y) * 0.5f * height();
+            float dx = sx - mp.x;
+            float dy = sy - mp.y;
+            float distSq = dx * dx + dy * dy;
+            if (distSq < kPickRadiusSq && distSq < bestDist) {
+                bestDist = distSq;
+                outRoadIdx = ri;
+                outCurveIdx = ci;
+            }
+        }
+    }
+
+    return outRoadIdx >= 0;
+}
+
+bool Viewport3D::pickLaneSectionPoint(const QPoint& screenPos, int& outRoadIdx, int& outCurveIdx) const {
+    const float kPickRadiusSq = 16.0f * 16.0f;
+    float bestDist = std::numeric_limits<float>::max();
+    outRoadIdx = -1;
+    outCurveIdx = -1;
+
+    glm::mat4 vp = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+    glm::vec2 mp = {float(screenPos.x()), float(screenPos.y())};
+
+    for (int ri = 0; ri < (int)m_network.roads.size(); ++ri) {
+        const auto& road = m_network.roads[ri];
+        for (int ci = 0; ci < (int)road.laneSections.size(); ++ci) {
+            glm::vec3 pos = sampleRoadPosition(road, road.laneSections[ci].u);
             glm::vec4 clip = vp * glm::vec4(-pos.x, pos.y, pos.z, 1.0f);
             if (clip.w <= 0.0f) continue;
             glm::vec3 ndc = glm::vec3(clip) / clip.w;
@@ -1584,6 +1708,83 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
         return;
     }
 
+    if (m_editor.mode == ToolMode::LaneSection) {
+        int roadIdx = -1;
+        int curveIdx = -1;
+        if (pickLaneSectionPoint(e->pos(), roadIdx, curveIdx)) {
+            m_editor.sel.setLaneSection(roadIdx, curveIdx);
+            m_laneSectionDragging = true;
+            m_laneSectionDragRoad = roadIdx;
+            m_laneSectionDragPoint = curveIdx;
+            m_editor.pushUndo(m_network);
+        } else {
+            int pickedRoad = pickRoad(e->pos());
+            if (pickedRoad >= 0) {
+                float u = 0.0f;
+                if (m_editor.sel.roadIdx == pickedRoad && findNearestRoadU(e->pos(), pickedRoad, u)) {
+                    auto& road = m_network.roads[pickedRoad];
+                    m_editor.pushUndo(m_network);
+                    LaneSectionPoint point;
+                    point.u = u;
+                    point.useLaneLeft2 = road.useLaneLeft2;
+                    point.widthLaneLeft2 = road.defaultWidthLaneLeft2;
+                    point.useLaneLeft1 = road.useLaneLeft1;
+                    point.widthLaneLeft1 = road.defaultWidthLaneLeft1;
+                    point.useLaneCenter = road.useLaneCenter;
+                    point.widthLaneCenter = road.defaultWidthLaneCenter;
+                    point.useLaneRight1 = road.useLaneRight1;
+                    point.widthLaneRight1 = road.defaultWidthLaneRight1;
+                    point.useLaneRight2 = road.useLaneRight2;
+                    point.widthLaneRight2 = road.defaultWidthLaneRight2;
+                    point.offsetCenter = 0.0f;
+                    road.laneSections.push_back(point);
+                    std::sort(road.laneSections.begin(), road.laneSections.end(),
+                              [](const LaneSectionPoint& a, const LaneSectionPoint& b) { return a.u < b.u; });
+                    int newIdx = -1;
+                    for (int i = 0; i < (int)road.laneSections.size(); ++i) {
+                        if (std::abs(road.laneSections[i].u - point.u) < 1e-5f &&
+                            road.laneSections[i].useLaneLeft2 == point.useLaneLeft2 &&
+                            std::abs(road.laneSections[i].widthLaneLeft2 - point.widthLaneLeft2) < 1e-5f &&
+                            road.laneSections[i].useLaneLeft1 == point.useLaneLeft1 &&
+                            std::abs(road.laneSections[i].widthLaneLeft1 - point.widthLaneLeft1) < 1e-5f &&
+                            road.laneSections[i].useLaneCenter == point.useLaneCenter &&
+                            std::abs(road.laneSections[i].widthLaneCenter - point.widthLaneCenter) < 1e-5f &&
+                            road.laneSections[i].useLaneRight1 == point.useLaneRight1 &&
+                            std::abs(road.laneSections[i].widthLaneRight1 - point.widthLaneRight1) < 1e-5f &&
+                            road.laneSections[i].useLaneRight2 == point.useLaneRight2 &&
+                            std::abs(road.laneSections[i].widthLaneRight2 - point.widthLaneRight2) < 1e-5f &&
+                            std::abs(road.laneSections[i].offsetCenter - point.offsetCenter) < 1e-5f) {
+                            newIdx = i;
+                            break;
+                        }
+                    }
+                    m_editor.sel.setLaneSection(pickedRoad, newIdx);
+                    makeCurrent();
+                    m_roadRenderer.rebuild(this, m_network);
+                    syncSelectionVisuals();
+                    doneCurrent();
+                    emit networkChanged();
+                    update();
+                    return;
+                }
+                m_editor.sel.roadIdx = pickedRoad;
+                m_editor.sel.verticalCurveIdx = -1;
+                m_editor.sel.bankAngleIdx = -1;
+                m_editor.sel.laneSectionIdx = -1;
+                m_editor.sel.points.clear();
+                m_editor.sel.intersectionIdx = -1;
+                m_editor.sel.socketIdx = -1;
+            } else {
+                m_editor.sel.clear();
+            }
+        }
+        makeCurrent();
+        syncSelectionVisuals();
+        doneCurrent();
+        update();
+        return;
+    }
+
     if (m_editor.sel.valid() || m_editor.sel.hasIntersection()) {
         glm::vec3 glPos = selectionPivotGlPos();
         glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
@@ -1776,6 +1977,26 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
             float u = 0.0f;
             if (findNearestRoadU(e->pos(), m_bankAngleDragRoad, u)) {
                 m_network.roads[m_bankAngleDragRoad].bankAngle[m_bankAngleDragPoint].u =
+                    std::clamp(u, 0.0f, 1.0f);
+                makeCurrent();
+                m_roadRenderer.rebuild(this, m_network);
+                syncSelectionVisuals();
+                doneCurrent();
+                emit networkChanged();
+                update();
+            }
+        }
+        return;
+    }
+
+    if (m_laneSectionDragging && (e->buttons() & Qt::LeftButton)) {
+        if (m_laneSectionDragRoad >= 0 &&
+            m_laneSectionDragRoad < (int)m_network.roads.size() &&
+            m_laneSectionDragPoint >= 0 &&
+            m_laneSectionDragPoint < (int)m_network.roads[m_laneSectionDragRoad].laneSections.size()) {
+            float u = 0.0f;
+            if (findNearestRoadU(e->pos(), m_laneSectionDragRoad, u)) {
+                m_network.roads[m_laneSectionDragRoad].laneSections[m_laneSectionDragPoint].u =
                     std::clamp(u, 0.0f, 1.0f);
                 makeCurrent();
                 m_roadRenderer.rebuild(this, m_network);
@@ -2107,6 +2328,49 @@ void Viewport3D::mouseReleaseEvent(QMouseEvent* e) {
             update();
             return;
         }
+        if (m_laneSectionDragging) {
+            if (m_laneSectionDragRoad >= 0 &&
+                m_laneSectionDragRoad < (int)m_network.roads.size()) {
+                auto& road = m_network.roads[m_laneSectionDragRoad];
+                if (m_laneSectionDragPoint >= 0 &&
+                    m_laneSectionDragPoint < (int)road.laneSections.size()) {
+                    auto movedPoint = road.laneSections[m_laneSectionDragPoint];
+                    std::sort(road.laneSections.begin(), road.laneSections.end(),
+                              [](const LaneSectionPoint& a, const LaneSectionPoint& b) { return a.u < b.u; });
+                    int newIdx = -1;
+                    for (int i = 0; i < (int)road.laneSections.size(); ++i) {
+                        const auto& p = road.laneSections[i];
+                        if (std::abs(p.u - movedPoint.u) < 1e-5f &&
+                            p.useLaneLeft2 == movedPoint.useLaneLeft2 &&
+                            std::abs(p.widthLaneLeft2 - movedPoint.widthLaneLeft2) < 1e-5f &&
+                            p.useLaneLeft1 == movedPoint.useLaneLeft1 &&
+                            std::abs(p.widthLaneLeft1 - movedPoint.widthLaneLeft1) < 1e-5f &&
+                            p.useLaneCenter == movedPoint.useLaneCenter &&
+                            std::abs(p.widthLaneCenter - movedPoint.widthLaneCenter) < 1e-5f &&
+                            p.useLaneRight1 == movedPoint.useLaneRight1 &&
+                            std::abs(p.widthLaneRight1 - movedPoint.widthLaneRight1) < 1e-5f &&
+                            p.useLaneRight2 == movedPoint.useLaneRight2 &&
+                            std::abs(p.widthLaneRight2 - movedPoint.widthLaneRight2) < 1e-5f &&
+                            std::abs(p.offsetCenter - movedPoint.offsetCenter) < 1e-5f) {
+                            newIdx = i;
+                            break;
+                        }
+                    }
+                    if (newIdx >= 0)
+                        m_editor.sel.setLaneSection(m_laneSectionDragRoad, newIdx);
+                    makeCurrent();
+                    m_roadRenderer.rebuild(this, m_network);
+                    syncSelectionVisuals();
+                    doneCurrent();
+                    emit networkChanged();
+                }
+            }
+            m_laneSectionDragging = false;
+            m_laneSectionDragRoad = -1;
+            m_laneSectionDragPoint = -1;
+            update();
+            return;
+        }
         if (m_dragging &&
             m_editor.sel.valid() &&
             m_editor.sel.points.size() == 1 &&
@@ -2224,6 +2488,13 @@ void Viewport3D::keyPressEvent(QKeyEvent* e) {
         m_editor.mode == ToolMode::BankAngle &&
         m_editor.sel.hasBankAngle()) {
         removeSelectedBankAngle(m_editor.sel.roadIdx, m_editor.sel.bankAngleIdx);
+        return;
+    }
+
+    if (e->key() == Qt::Key_Delete &&
+        m_editor.mode == ToolMode::LaneSection &&
+        m_editor.sel.hasLaneSection()) {
+        removeSelectedLaneSection(m_editor.sel.roadIdx, m_editor.sel.laneSectionIdx);
         return;
     }
 

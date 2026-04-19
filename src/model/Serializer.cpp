@@ -82,6 +82,40 @@ static json writeBankAnglePoint(const BankAnglePoint& p) {
     };
 }
 
+static LaneSectionPoint readLaneSectionPoint(const json& j) {
+    LaneSectionPoint p;
+    p.u = j.value("u", j.value("uCoord", 0.0f));
+    p.useLaneLeft2 = j.value("useLaneLeft2", false);
+    p.widthLaneLeft2 = j.value("widthLaneLeft2", 3.0f);
+    p.useLaneLeft1 = j.value("useLaneLeft1", true);
+    p.widthLaneLeft1 = j.value("widthLaneLeft1", 3.0f);
+    p.useLaneCenter = j.value("useLaneCenter", true);
+    p.widthLaneCenter = j.value("widthLaneCenter", 0.0f);
+    p.useLaneRight1 = j.value("useLaneRight1", true);
+    p.widthLaneRight1 = j.value("widthLaneRight1", 3.0f);
+    p.useLaneRight2 = j.value("useLaneRight2", false);
+    p.widthLaneRight2 = j.value("widthLaneRight2", 3.0f);
+    p.offsetCenter = j.value("offsetCenter", 0.0f);
+    return p;
+}
+
+static json writeLaneSectionPoint(const LaneSectionPoint& p) {
+    return {
+        {"u", p.u},
+        {"useLaneLeft2", p.useLaneLeft2},
+        {"widthLaneLeft2", p.widthLaneLeft2},
+        {"useLaneLeft1", p.useLaneLeft1},
+        {"widthLaneLeft1", p.widthLaneLeft1},
+        {"useLaneCenter", p.useLaneCenter},
+        {"widthLaneCenter", p.widthLaneCenter},
+        {"useLaneRight1", p.useLaneRight1},
+        {"widthLaneRight1", p.widthLaneRight1},
+        {"useLaneRight2", p.useLaneRight2},
+        {"widthLaneRight2", p.widthLaneRight2},
+        {"offsetCenter", p.offsetCenter}
+    };
+}
+
 static std::vector<IntersectionSocket> defaultSockets(float entryDist) {
     const float radius = std::max(entryDist, 12.0f);
     return {
@@ -170,6 +204,8 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
             r.verticalCurve.push_back(readVerticalCurvePoint(jv));
         for (const auto& jb : jr.value("bankAngle", json::array()))
             r.bankAngle.push_back(readBankAnglePoint(jb));
+        for (const auto& jl : jr.value("laneSections", json::array()))
+            r.laneSections.push_back(readLaneSectionPoint(jl));
 
         if (!r.startLink.connected())
             r.startIntersectionId.clear();
@@ -248,6 +284,8 @@ bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
             jr["verticalCurve"].push_back(writeVerticalCurvePoint(p));
         for (const auto& p : r.bankAngle)
             jr["bankAngle"].push_back(writeBankAnglePoint(p));
+        for (const auto& p : r.laneSections)
+            jr["laneSections"].push_back(writeLaneSectionPoint(p));
         jRoads.push_back(jr);
     }
     doc["roads"] = jRoads;

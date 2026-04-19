@@ -58,6 +58,10 @@ MainWindow::MainWindow(QWidget* parent)
             m_viewport,   &Viewport3D::applySelectedBankAngleProperties);
     connect(m_properties, &PropertiesPanel::removeSelectedBankAngleRequested,
             m_viewport,   &Viewport3D::removeSelectedBankAngle);
+    connect(m_properties, &PropertiesPanel::selectedLaneSectionModified,
+            m_viewport,   &Viewport3D::applySelectedLaneSectionProperties);
+    connect(m_properties, &PropertiesPanel::removeSelectedLaneSectionRequested,
+            m_viewport,   &Viewport3D::removeSelectedLaneSection);
     connect(m_properties, &PropertiesPanel::selectedSocketModified,
             m_viewport,   &Viewport3D::applySelectedSocketProperties);
     connect(m_properties, &PropertiesPanel::addSocketRequested,
@@ -132,6 +136,12 @@ void MainWindow::setupToolBar() {
     m_bankModeAct->setShortcut(Qt::Key_B);
     group->addAction(m_bankModeAct);
 
+    m_laneModeAct = tb->addAction("Lane");
+    m_laneModeAct->setCheckable(true);
+    m_laneModeAct->setToolTip("Edit lane section points  [L]");
+    m_laneModeAct->setShortcut(Qt::Key_L);
+    group->addAction(m_laneModeAct);
+
     tb->addSeparator();
     m_createRoadAct = tb->addAction("Create Road");
     m_createRoadAct->setToolTip("Create a new road in Edit mode  [R]");
@@ -154,6 +164,10 @@ void MainWindow::setupToolBar() {
     });
     connect(m_bankModeAct, &QAction::triggered, this, [this]{
         m_viewport->setToolMode(ToolMode::BankAngle);
+        m_viewport->setEditSubTool(EditSubTool::None);
+    });
+    connect(m_laneModeAct, &QAction::triggered, this, [this]{
+        m_viewport->setToolMode(ToolMode::LaneSection);
         m_viewport->setEditSubTool(EditSubTool::None);
     });
     connect(m_createRoadAct, &QAction::triggered, this, [this]{

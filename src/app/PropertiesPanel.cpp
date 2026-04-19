@@ -5,7 +5,6 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QDoubleSpinBox>
-#include <QPushButton>
 #include <QGroupBox>
 
 static QDoubleSpinBox* makeWidthSpin(QWidget* parent) {
@@ -92,9 +91,33 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     meshForm->addRow("Midpoint split:", m_equalMidpointCheck);
     root->addWidget(meshGrp);
 
-    auto* applyBtn = new QPushButton("Apply", this);
-    connect(applyBtn, &QPushButton::clicked, this, &PropertiesPanel::applyChanges);
-    root->addWidget(applyBtn);
+    connect(m_speedSpin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+
+    connect(m_useLaneLeft2Check, &QCheckBox::toggled,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_widthLaneLeft2Spin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_useLaneLeft1Check, &QCheckBox::toggled,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_widthLaneLeft1Spin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_useLaneCenterCheck, &QCheckBox::toggled,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_widthLaneCenterSpin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_useLaneRight1Check, &QCheckBox::toggled,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_widthLaneRight1Spin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_useLaneRight2Check, &QCheckBox::toggled,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_widthLaneRight2Spin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_segmentLengthSpin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_equalMidpointCheck, &QCheckBox::toggled,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
 
     root->addStretch();
 

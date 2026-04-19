@@ -32,6 +32,9 @@ _deps/
 # Claude Code local settings
 .claude/
 
+# Local debug artifacts
+input_debug.log
+
 # OS files
 Thumbs.db
 desktop.ini

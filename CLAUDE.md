@@ -9,8 +9,9 @@ cmake -S . -B build -G "MinGW Makefiles" \
   -DCMAKE_MAKE_PROGRAM="C:/qt/Tools/mingw1310_64/bin/mingw32-make.exe" \
   -DCMAKE_PREFIX_PATH="C:/qt/6.11.0/mingw_64"
 
-# Build
-cmake --build build --config Release -- -j4
+# Build (prepend MinGW bin to PATH in PowerShell)
+$env:PATH='C:\qt\Tools\mingw1310_64\bin;' + $env:PATH
+cmake --build build
 
 # Run
 build/bin/RoadEditor2.exe
@@ -18,6 +19,7 @@ build/bin/RoadEditor2.exe
 ```
 
 CMakeLists.txt uses `GLOB_RECURSE` — re-run configure whenever new `.cpp` files are added.
+Without the PATH line above, `g++` may fail to launch `cc1plus.exe` correctly in this environment.
 
 ## Coordinate system
 

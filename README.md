@@ -23,14 +23,22 @@ JSON 形式の道路データを読み込み、3D ビューポートで中心線
 
 ## ビルド
 
+PowerShell からビルドする場合は、先に MinGW の `bin` を `PATH` に追加してください。
+これを入れないと `g++` 内部の `cc1plus.exe` が必要 DLL を読めず、`cmake --build build`
+が途中で失敗することがあります。
+
 ```bash
 cmake -S . -B build -G "MinGW Makefiles" \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_MAKE_PROGRAM="C:/qt/Tools/mingw1310_64/bin/mingw32-make.exe" \
   -DCMAKE_PREFIX_PATH="C:/qt/6.11.0/mingw_64"
 
-cmake --build build --config Release -- -j4
+$env:PATH='C:\qt\Tools\mingw1310_64\bin;' + $env:PATH
+cmake --build build
 ```
+
+`cmake --build build --config Release -- -j4` でもよいですが、このリポジトリの現在の
+構成では上の 2 行をそのまま使うのが安全です。
 
 ## 起動
 

@@ -6,15 +6,16 @@
 #include "../renderer/Mesh.h"
 #include "../renderer/Shader.h"
 #include "../model/RoadNetwork.h"
+#include "../editor/EditorState.h"
 
 class RoadRenderer {
 public:
     void init   (QOpenGLFunctions_4_1_Core* f);
     void rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net);
 
-    // Update orange highlight for selected control point (-1 to clear)
+    // Update highlight for selected control points / roads.
     void updateSelection(QOpenGLFunctions_4_1_Core* f,
-                         const RoadNetwork& net, int roadIdx, int pointIdx);
+                         const RoadNetwork& net, const Selection& sel);
 
     // lineShader: for centerlines and intersection markers
     // roadShader: for road surface mesh (Lambert)

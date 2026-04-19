@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QMetaType>
 #include <QWidget>
 #include "../model/RoadNetwork.h"
 
@@ -63,3 +64,5 @@ private:
 signals:
     void roadModified(int roadIdx, RoadProperties props);
 };
+
+Q_DECLARE_METATYPE(RoadProperties)

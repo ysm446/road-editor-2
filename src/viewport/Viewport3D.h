@@ -4,11 +4,15 @@
 #include <QOpenGLFunctions_4_1_Core>
 #include <QTimer>
 #include <QPoint>
+#include <QRect>
+#include <QRubberBand>
 #include <QString>
+#include <vector>
 #include <glm/glm.hpp>
 #include "Camera.h"
 #include "Grid.h"
 #include "AxisGizmo.h"
+#include "../renderer/LineBatch.h"
 #include "../renderer/Shader.h"
 #include "../model/RoadNetwork.h"
 #include "../scene/RoadRenderer.h"
@@ -56,10 +60,16 @@ private:
     int  pickIntersection(const QPoint& screenPos) const;
     glm::vec3 rayHitY(const glm::vec3& origin, const glm::vec3& dir, float y) const;
     void setupIxDragEndpoints(int ixIdx);
+    glm::vec3 selectionPivotGlPos() const;
+    std::vector<SelectedPoint> pickControlPointsInRect(const QRect& rect) const;
+    void syncSelectionVisuals();
+    void beginPointDrag(const glm::vec3& pivotGlPos);
+    int selectedRoadForPanels() const;
 
     Camera         m_camera;
     Grid           m_grid;
     AxisGizmo      m_axisGizmo;
+    LineBatch      m_boxOverlay;
     Shader         m_lineShader;
     Shader         m_roadShader;
     Shader         m_pointShader;
@@ -67,6 +77,7 @@ private:
     QPoint         m_lastPos;
     bool           m_rotating  = false;
     bool           m_panning   = false;
+    bool           m_leftButtonDown = false;
     float          m_aspect    = 1.0f;
     bool           m_glReady   = false;
 
@@ -80,6 +91,17 @@ private:
     bool      m_dragging    = false;
     glm::vec3 m_dragPlaneY  = {0, 0, 0};
     bool      m_altDown     = false;
+    struct PointDragOrigin { SelectedPoint point; glm::vec3 pos; };
+    std::vector<PointDragOrigin> m_pointDragOrigins;
+
+    // Box selection state
+    bool      m_boxSelectPending = false;
+    bool      m_boxSelecting     = false;
+    QPoint    m_leftPressPos;
+    QPoint    m_boxSelectOrigin;
+    QPoint    m_boxSelectCurrent;
+    int       m_boxSelectRoadCandidate = -1;
+    QRubberBand* m_boxRubberBand = nullptr;
 
     // Gizmo drag state
     TransformGizmo::Axis m_gizmoHover           = TransformGizmo::Axis::None;

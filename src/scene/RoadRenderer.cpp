@@ -2,6 +2,7 @@
 #include "../generator/RoadMeshGen.h"
 #include "../generator/ClothoidGen.h"
 #include "../generator/IntersectionMeshGen.h"
+#include <set>
 #include <glm/gtc/matrix_transform.hpp>
 
 void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
@@ -31,18 +32,17 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
         return kStraight;
     };
 
-    // Colored centerlines (white=straight, orange=clothoid, green=arc)
     m_roads.begin();
     for (const auto& road : net.roads) {
         if (road.points.size() < 2) continue;
-        auto curve = ClothoidGen::buildCenterlineDetailed(road.points, road.segmentLength, road.equalMidpoint);
+        auto curve = ClothoidGen::buildCenterlineDetailed(
+            road.points, road.segmentLength, road.equalMidpoint);
         for (size_t i = 0; i + 1 < curve.size(); ++i)
             m_roads.addLine(toGL(curve[i].pos), toGL(curve[i + 1].pos),
                             kindColor(curve[i].kind));
     }
     m_roads.upload(f);
 
-    // Intersection markers
     m_nodes.begin();
     for (const auto& n : net.intersections) {
         glm::vec3 p = toGL(n.pos);
@@ -52,9 +52,8 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     }
     m_nodes.upload(f);
 
-    // All control point dots and control polygon, drawn in Edit mode
-    const glm::vec3 kPtNormal   = {0.75f, 0.75f, 0.75f};
-    const glm::vec3 kCtrlLine   = {0.45f, 0.45f, 0.45f};
+    const glm::vec3 kPtNormal = {0.75f, 0.75f, 0.75f};
+    const glm::vec3 kCtrlLine = {0.45f, 0.45f, 0.45f};
     m_allPoints.begin();
     m_allCtrlLines.begin();
     for (const auto& road : net.roads) {
@@ -67,16 +66,14 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     m_allPoints.upload(f);
     m_allCtrlLines.upload(f);
 
-    // Road surface mesh (all roads merged, with intersection trimming)
     std::vector<Mesh::Vertex> verts;
-    std::vector<uint32_t>     indices;
+    std::vector<uint32_t> indices;
     for (const auto& road : net.roads)
         RoadMeshGen::generate(road, verts, indices, 6, &net);
     m_surfaceMesh.upload(f, verts, indices);
 
-    // Intersection fill mesh
     std::vector<Mesh::Vertex> ixVerts;
-    std::vector<uint32_t>     ixIndices;
+    std::vector<uint32_t> ixIndices;
     for (const auto& ix : net.intersections)
         IntersectionMeshGen::generate(ix, net, ixVerts, ixIndices);
     m_intersectionMesh.upload(f, ixVerts, ixIndices);
@@ -85,30 +82,32 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
 }
 
 void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
-                                   const RoadNetwork& net, int roadIdx, int pointIdx)
-{
+                                   const RoadNetwork& net, const Selection& sel) {
     if (!m_ready) return;
-    const glm::vec3 kSelPt   = {1.0f, 0.55f, 0.0f};  // orange — control point cross
-    const glm::vec3 kSelRoad = {0.2f, 0.9f, 1.0f};    // cyan — selected road
-    const float     kCross   = 6.0f;
 
-    // Selected control point (single point for GL_POINTS rendering)
+    const glm::vec3 kSelPt   = {1.0f, 0.55f, 0.0f};
+    const glm::vec3 kSelRoad = {0.2f, 0.9f, 1.0f};
+
     m_selBatch.begin();
-    if (roadIdx >= 0 && pointIdx >= 0 &&
-        roadIdx < (int)net.roads.size() &&
-        pointIdx < (int)net.roads[roadIdx].points.size())
-    {
-        glm::vec3 p = toGL(net.roads[roadIdx].points[pointIdx].pos);
-        m_selBatch.addPoint(p, kSelPt);
+    for (const auto& pt : sel.points) {
+        if (pt.roadIdx < 0 || pt.roadIdx >= (int)net.roads.size()) continue;
+        if (pt.pointIdx < 0 || pt.pointIdx >= (int)net.roads[pt.roadIdx].points.size()) continue;
+        m_selBatch.addPoint(toGL(net.roads[pt.roadIdx].points[pt.pointIdx].pos), kSelPt);
     }
     m_selBatch.upload(f);
 
-    // Selected road centerline highlight
+    std::set<int> selectedRoads;
+    if (sel.roadIdx >= 0) selectedRoads.insert(sel.roadIdx);
+    for (const auto& pt : sel.points)
+        if (pt.roadIdx >= 0)
+            selectedRoads.insert(pt.roadIdx);
+
     m_selRoad.begin();
-    if (roadIdx >= 0 && roadIdx < (int)net.roads.size()) {
+    for (int roadIdx : selectedRoads) {
+        if (roadIdx < 0 || roadIdx >= (int)net.roads.size()) continue;
         const auto& road = net.roads[roadIdx];
         for (size_t i = 0; i + 1 < road.points.size(); ++i)
-            m_selRoad.addLine(toGL(road.points[i    ].pos),
+            m_selRoad.addLine(toGL(road.points[i].pos),
                               toGL(road.points[i + 1].pos), kSelRoad);
     }
     m_selRoad.upload(f);
@@ -116,38 +115,34 @@ void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
 
 void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
                         Shader& lineShader, Shader& roadShader, Shader& pointShader,
-                        const glm::mat4& vp)
-{
+                        const glm::mat4& vp) {
     if (!m_ready || !m_hasData) return;
 
-    // --- Road surface (draw first so lines appear on top) ---
     f->glDisable(GL_CULL_FACE);
 
-    // Solid surface (always drawn)
     f->glEnable(GL_POLYGON_OFFSET_FILL);
     f->glPolygonOffset(2.0f, 2.0f);
 
     roadShader.bind();
-    roadShader.setMat4(f, "u_mvp",    vp);
+    roadShader.setMat4(f, "u_mvp", vp);
     roadShader.setVec3(f, "u_sunDir", glm::normalize(glm::vec3(0.4f, 1.0f, 0.5f)));
-    roadShader.setVec3(f, "u_color",  glm::vec3(0.30f, 0.30f, 0.30f));
+    roadShader.setVec3(f, "u_color", glm::vec3(0.30f, 0.30f, 0.30f));
     m_surfaceMesh.draw(f);
-    roadShader.setVec3(f, "u_color",  glm::vec3(0.25f, 0.25f, 0.28f));
+    roadShader.setVec3(f, "u_color", glm::vec3(0.25f, 0.25f, 0.28f));
     m_intersectionMesh.draw(f);
     roadShader.unbind();
 
     f->glDisable(GL_POLYGON_OFFSET_FILL);
 
-    // Wireframe overlay (only when enabled)
     if (m_wireframe) {
         f->glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         f->glEnable(GL_POLYGON_OFFSET_LINE);
         f->glPolygonOffset(-1.0f, -1.0f);
 
         roadShader.bind();
-        roadShader.setMat4(f, "u_mvp",    vp);
+        roadShader.setMat4(f, "u_mvp", vp);
         roadShader.setVec3(f, "u_sunDir", glm::normalize(glm::vec3(0.4f, 1.0f, 0.5f)));
-        roadShader.setVec3(f, "u_color",  glm::vec3(0.30f, 0.65f, 0.30f));
+        roadShader.setVec3(f, "u_color", glm::vec3(0.30f, 0.65f, 0.30f));
         m_surfaceMesh.draw(f);
         m_intersectionMesh.draw(f);
         roadShader.unbind();
@@ -156,23 +151,20 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
         f->glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
 
-    // --- Centerlines, markers and selection on top ---
     if (m_showPoints)
-        m_allCtrlLines.draw(f, lineShader, vp);  // control polygon (dim gray)
+        m_allCtrlLines.draw(f, lineShader, vp);
     m_roads.draw(f, lineShader, vp);
     m_nodes.draw(f, lineShader, vp);
 
-    // Selected road: pull forward so it wins the depth test over m_roads
     f->glEnable(GL_POLYGON_OFFSET_LINE);
     f->glPolygonOffset(-1.0f, -1.0f);
     m_selRoad.draw(f, lineShader, vp);
     f->glDisable(GL_POLYGON_OFFSET_LINE);
 
-    // Control point dots (screen-space circles)
     f->glEnable(GL_PROGRAM_POINT_SIZE);
     if (m_showPoints)
-        m_allPoints.drawPoints(f, pointShader, vp, 10.0f);  // all: gray, small
-    m_selBatch.drawPoints(f, pointShader, vp, 14.0f);       // selected: orange, larger
+        m_allPoints.drawPoints(f, pointShader, vp, 10.0f);
+    m_selBatch.drawPoints(f, pointShader, vp, 14.0f);
     f->glDisable(GL_PROGRAM_POINT_SIZE);
 }
 

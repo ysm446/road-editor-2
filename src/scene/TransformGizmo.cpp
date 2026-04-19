@@ -158,6 +158,15 @@ TransformGizmo::Axis TransformGizmo::hitTest(
 
     glm::vec2 mp = {float(screenPos.x()), float(screenPos.y())};
 
+    // Center circle takes priority — check before axes.
+    const float kCenterRadiusSq = 14.0f * 14.0f;
+    auto [sc, okC] = project(vertexGlPos);
+    if (okC) {
+        glm::vec2 d = mp - sc;
+        if (glm::dot(d, d) < kCenterRadiusSq)
+            return Axis::Screen;
+    }
+
     for (int i = 0; i < 3; ++i) {
         Axis  a    = static_cast<Axis>(i);
         glm::vec3 tip = vertexGlPos + len * axisDir(a);
@@ -183,17 +192,6 @@ TransformGizmo::Axis TransformGizmo::hitTest(
         if (distSq < kPickRadiusSq && distSq < bestDist) {
             bestDist = distSq;
             bestAxis = a;
-        }
-    }
-
-    // Center circle: fixed screen-space radius, lower priority than axes.
-    const float kCenterRadiusSq = 14.0f * 14.0f;
-    auto [sc, okC] = project(vertexGlPos);
-    if (okC) {
-        glm::vec2 d = mp - sc;
-        float distSq = glm::dot(d, d);
-        if (distSq < kCenterRadiusSq && distSq < bestDist) {
-            bestAxis = Axis::Screen;
         }
     }
 

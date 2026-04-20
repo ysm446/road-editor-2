@@ -104,7 +104,7 @@ bool TerrainRenderer::loadTexture(QOpenGLFunctions_4_1_Core* f, const QString& p
         return false;
     }
 
-    image = image.convertToFormat(QImage::Format_RGBA8888).flipped(Qt::Vertical);
+    image = image.convertToFormat(QImage::Format_RGBA8888);
     if (m_texture == 0)
         f->glGenTextures(1, &m_texture);
 

@@ -1535,6 +1535,49 @@ void Viewport3D::deleteSelectedControlPoints() {
     emit networkChanged();
 }
 
+bool Viewport3D::snapSelectedPointsToTerrain() {
+    if (m_editor.mode != ToolMode::Edit || !m_editor.sel.valid() || !m_terrainRenderer.hasData())
+        return false;
+
+    std::vector<SelectedPoint> uniquePoints = m_editor.sel.points;
+    std::sort(uniquePoints.begin(), uniquePoints.end(), [](const SelectedPoint& a, const SelectedPoint& b) {
+        if (a.roadIdx != b.roadIdx) return a.roadIdx < b.roadIdx;
+        return a.pointIdx < b.pointIdx;
+    });
+    uniquePoints.erase(std::unique(uniquePoints.begin(), uniquePoints.end()), uniquePoints.end());
+
+    std::vector<std::pair<SelectedPoint, float>> snapped;
+    snapped.reserve(uniquePoints.size());
+    for (const auto& selPt : uniquePoints) {
+        if (selPt.roadIdx < 0 || selPt.roadIdx >= static_cast<int>(m_network.roads.size()))
+            continue;
+        auto& road = m_network.roads[selPt.roadIdx];
+        if (selPt.pointIdx < 0 || selPt.pointIdx >= static_cast<int>(road.points.size()))
+            continue;
+
+        float terrainY = 0.0f;
+        const glm::vec3& pos = road.points[selPt.pointIdx].pos;
+        if (!m_terrainRenderer.sampleWorldHeight(pos.x, pos.z, terrainY))
+            continue;
+        snapped.push_back({selPt, terrainY});
+    }
+
+    if (snapped.empty())
+        return false;
+
+    m_editor.pushUndo(m_network);
+    for (const auto& [selPt, terrainY] : snapped)
+        m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos.y = terrainY;
+
+    makeCurrent();
+    m_roadRenderer.rebuild(this, m_network);
+    syncSelectionVisuals();
+    doneCurrent();
+    emit networkChanged();
+    update();
+    return true;
+}
+
 bool Viewport3D::pickControlPoint(
     const glm::vec3& rayOrigin, const glm::vec3& rayDir, int& outRoadIdx, int& outPointIdx) {
     Q_UNUSED(rayOrigin);
@@ -2687,6 +2730,14 @@ void Viewport3D::keyPressEvent(QKeyEvent* e) {
         m_editor.mode == ToolMode::Edit &&
         m_editor.sel.valid()) {
         deleteSelectedControlPoints();
+        return;
+    }
+
+    if (e->key() == Qt::Key_C &&
+        m_editor.mode == ToolMode::Edit &&
+        m_editor.sel.valid()) {
+        if (snapSelectedPointsToTerrain())
+            e->accept();
         return;
     }
 

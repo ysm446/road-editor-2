@@ -116,6 +116,7 @@ private:
     void connectEndpointToSelectedSocket(int roadIdx, int pointIdx);
     void syncLinkedEndpointsForIntersection(int intersectionIdx);
     void deleteSelectedControlPoints();
+    bool snapSelectedPointsToTerrain();
     void syncSelectionVisuals();
     void beginPointDrag(const glm::vec3& pivotGlPos);
     int selectedRoadForPanels() const;

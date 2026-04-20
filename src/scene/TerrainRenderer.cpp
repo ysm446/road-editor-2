@@ -131,6 +131,27 @@ void TerrainRenderer::clearTexture(QOpenGLFunctions_4_1_Core* f) {
     m_hasTexture = false;
 }
 
+bool TerrainRenderer::sampleWorldHeight(float worldX, float worldZ, float& outY) const {
+    if (!m_hasData || m_rawWidth < 2 || m_rawHeight < 2)
+        return false;
+
+    const float minX = m_settings.offset.x - m_settings.width * 0.5f;
+    const float maxX = m_settings.offset.x + m_settings.width * 0.5f;
+    const float minZ = m_settings.offset.z - m_settings.depth * 0.5f;
+    const float maxZ = m_settings.offset.z + m_settings.depth * 0.5f;
+    if (worldX < minX || worldX > maxX || worldZ < minZ || worldZ > maxZ)
+        return false;
+
+    const float safeWidth = std::max(m_settings.width, 1e-6f);
+    const float safeDepth = std::max(m_settings.depth, 1e-6f);
+    const float u = (worldX - minX) / safeWidth;
+    const float v = (worldZ - minZ) / safeDepth;
+    const float rawX = std::clamp(u, 0.0f, 1.0f) * static_cast<float>(m_rawWidth - 1);
+    const float rawZ = std::clamp(v, 0.0f, 1.0f) * static_cast<float>(m_rawHeight - 1);
+    outY = m_settings.offset.y + sampleHeight(rawX, rawZ) * m_settings.height;
+    return true;
+}
+
 float TerrainRenderer::sampleHeight(float x, float z) const {
     if (m_heights.empty() || m_rawWidth < 2 || m_rawHeight < 2)
         return 0.0f;

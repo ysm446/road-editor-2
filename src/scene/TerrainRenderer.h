@@ -24,6 +24,7 @@ public:
               bool wireframe) const;
 
     bool hasData() const { return m_hasData; }
+    bool sampleWorldHeight(float worldX, float worldZ, float& outY) const;
 
 private:
     float sampleHeight(float x, float z) const;

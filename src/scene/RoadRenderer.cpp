@@ -19,10 +19,35 @@ glm::vec3 previewGradeColor(float value, float threshold) {
     const glm::vec3 high = {0.8f, 0.36f, 0.08f};
     return glm::mix(low, high, ratio);
 }
+
+void addDirectionArrow(LineBatch& batch, const glm::vec3& center, const glm::vec3& tangent,
+                       float length, const glm::vec3& color) {
+    if (glm::length(tangent) <= 1e-6f)
+        return;
+
+    const glm::vec3 dir = glm::normalize(tangent);
+    const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
+    glm::vec3 side = glm::cross(dir, worldUp);
+    if (glm::length(side) <= 1e-6f)
+        side = glm::vec3(1.0f, 0.0f, 0.0f);
+    else
+        side = glm::normalize(side);
+
+    const float headLen = length * 0.35f;
+    const float headWidth = length * 0.18f;
+    const glm::vec3 tail = center - dir * (length * 0.5f);
+    const glm::vec3 tip = center + dir * (length * 0.5f);
+    const glm::vec3 headBase = tip - dir * headLen;
+
+    batch.addLine(tail, tip, color);
+    batch.addLine(tip, headBase + side * headWidth, color);
+    batch.addLine(tip, headBase - side * headWidth, color);
+}
 }
 
 void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
     m_roads.init(f);
+    m_directionArrows.init(f);
     m_lanePreview.init(f);
     m_nodes.init(f);
     m_socketLines.init(f);
@@ -50,6 +75,9 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     const glm::vec3 kSocketLine = {0.55f, 0.65f, 0.90f};
     const glm::vec3 kSocketPoint = {0.70f, 0.80f, 1.00f};
     const float     kCross     = 5.0f;
+    const glm::vec3 kDirectionArrow = {1.0f, 0.95f, 0.35f};
+    const float     kArrowSpacing = 40.0f;
+    const float     kArrowLength = 14.0f;
 
     auto kindColor = [&](const CurvePt& p) -> const glm::vec3& {
         if (m_verticalCurvePreviewColors) {
@@ -64,6 +92,7 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     };
 
     m_roads.begin();
+    m_directionArrows.begin();
     m_lanePreview.begin();
     for (const auto& road : net.roads) {
         if (road.points.size() < 2) continue;
@@ -77,6 +106,32 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
             if (m_bankAnglePreviewColors && i < bankAngles.size())
                 color = previewGradeColor(glm::degrees(std::abs(bankAngles[i])), kBankAngleMaxDegrees);
             m_roads.addLine(toGL(curve[i].pos), toGL(curve[i + 1].pos), color);
+        }
+
+        if (curve.size() >= 2) {
+            std::vector<float> arc;
+            arc.reserve(curve.size());
+            arc.push_back(0.0f);
+            for (size_t i = 1; i < curve.size(); ++i)
+                arc.push_back(arc.back() + glm::length(curve[i].pos - curve[i - 1].pos));
+
+            const float totalLength = arc.back();
+            if (totalLength >= kArrowSpacing * 0.5f) {
+                for (float distance = kArrowSpacing * 0.5f;
+                     distance < totalLength;
+                     distance += kArrowSpacing) {
+                    auto it = std::lower_bound(arc.begin(), arc.end(), distance);
+                    const size_t idx = static_cast<size_t>(
+                        std::clamp<std::ptrdiff_t>(it - arc.begin(), 1, static_cast<std::ptrdiff_t>(curve.size() - 1)));
+                    const float prevDist = arc[idx - 1];
+                    const float nextDist = arc[idx];
+                    const float span = std::max(nextDist - prevDist, 1e-6f);
+                    const float t = std::clamp((distance - prevDist) / span, 0.0f, 1.0f);
+                    const glm::vec3 pos = glm::mix(curve[idx - 1].pos, curve[idx].pos, t);
+                    const glm::vec3 tangent = curve[idx].pos - curve[idx - 1].pos;
+                    addDirectionArrow(m_directionArrows, toGL(pos), toGL(tangent), kArrowLength, kDirectionArrow);
+                }
+            }
         }
 
         if (m_laneSectionPreview && curve.size() >= 2) {
@@ -156,6 +211,7 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
         }
     }
     m_roads.upload(f);
+    m_directionArrows.upload(f);
     m_lanePreview.upload(f);
 
     m_nodes.begin();
@@ -309,6 +365,8 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
         m_lanePreview.draw(f, lineShader, vp);
     m_nodes.draw(f, lineShader, vp);
     m_socketLines.draw(f, lineShader, vp);
+    if (m_showDirectionArrows)
+        m_directionArrows.draw(f, lineShader, vp);
 
     f->glEnable(GL_POLYGON_OFFSET_LINE);
     f->glPolygonOffset(-1.0f, -1.0f);
@@ -326,6 +384,7 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
 
 void RoadRenderer::destroy(QOpenGLFunctions_4_1_Core* f) {
     m_roads.destroy(f);
+    m_directionArrows.destroy(f);
     m_lanePreview.destroy(f);
     m_nodes.destroy(f);
     m_socketLines.destroy(f);

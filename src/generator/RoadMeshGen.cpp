@@ -53,12 +53,12 @@ void RoadMeshGen::generate(const Road&                 road,
         float leftW = lane.widthLeft2 + lane.widthLeft1 + lane.widthCenter * 0.5f;
         float rightW = lane.widthRight1 + lane.widthRight2 + lane.widthCenter * 0.5f;
         if (leftW < 1e-4f && rightW < 1e-4f) leftW = rightW = 0.1f;
-        glm::vec3 shiftedCenter = worldSamples[i] - right * lane.offsetCenter;
+        glm::vec3 shiftedCenter = worldSamples[i] + right * lane.offsetCenter;
 
         float vCoord = cumDist / (leftW + rightW);
 
-        outVerts.push_back({ toGL(shiftedCenter - right * leftW),  toGL(up), {0.0f, vCoord} });
-        outVerts.push_back({ toGL(shiftedCenter + right * rightW), toGL(up), {1.0f, vCoord} });
+        outVerts.push_back({ toGL(shiftedCenter + right * leftW),  toGL(up), {0.0f, vCoord} });
+        outVerts.push_back({ toGL(shiftedCenter - right * rightW), toGL(up), {1.0f, vCoord} });
     }
 
     // --- 4. Indices: two CCW triangles per quad ---

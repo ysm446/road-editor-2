@@ -29,6 +29,7 @@ public:
     void setVerticalCurvePreviewColors(bool on) { m_verticalCurvePreviewColors = on; }
     void setBankAnglePreviewColors(bool on) { m_bankAnglePreviewColors = on; }
     void setLaneSectionPreview(bool on) { m_laneSectionPreview = on; }
+    void setShowDirectionArrows(bool on) { m_showDirectionArrows = on; }
 
     void destroy(QOpenGLFunctions_4_1_Core* f);
 
@@ -38,7 +39,9 @@ private:
     bool m_verticalCurvePreviewColors = false;
     bool m_bankAnglePreviewColors = false;
     bool m_laneSectionPreview = false;
+    bool m_showDirectionArrows = false;
     LineBatch m_roads;       // centerlines (unselected)
+    LineBatch m_directionArrows; // direction arrows along centerlines
     LineBatch m_lanePreview; // lane boundary preview lines
     LineBatch m_nodes;       // intersection markers
     LineBatch m_socketLines; // socket spokes

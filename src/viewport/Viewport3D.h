@@ -43,6 +43,7 @@ public slots:
     void setToolMode(ToolMode m);
     void setEditSubTool(EditSubTool subTool);
     void setGridVisible(bool on);
+    void setRoadDirectionArrowsVisible(bool on);
     void applyRoadProperties(int roadIdx, RoadProperties props);
     void applySelectedVerticalCurveProperties(int roadIdx, int curveIdx, float u, float vcl, float offset);
     void removeSelectedVerticalCurve(int roadIdx, int curveIdx);

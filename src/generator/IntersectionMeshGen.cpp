@@ -89,8 +89,8 @@ void IntersectionMeshGen::generate(
         if (bLen < 1e-6f) continue;
         binom /= bLen;
 
-        glm::vec3 leftWorld  = endpointPos - binom * leftW;
-        glm::vec3 rightWorld = endpointPos + binom * rightW;
+        glm::vec3 leftWorld  = endpointPos + binom * leftW;
+        glm::vec3 rightWorld = endpointPos - binom * rightW;
 
         auto angleOf = [&](const glm::vec3& p) {
             return std::atan2(p.z - ix.pos.z, p.x - ix.pos.x);

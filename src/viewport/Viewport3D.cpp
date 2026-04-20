@@ -392,6 +392,11 @@ void Viewport3D::setGridVisible(bool on) {
     update();
 }
 
+void Viewport3D::setRoadDirectionArrowsVisible(bool on) {
+    m_roadRenderer.setShowDirectionArrows(on);
+    update();
+}
+
 bool Viewport3D::reloadTerrain(QString* errorMessage) {
     if (!m_glReady)
         return false;

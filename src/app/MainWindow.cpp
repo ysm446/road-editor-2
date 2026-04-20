@@ -149,33 +149,33 @@ void MainWindow::setupToolBar() {
 
     m_selectModeAct = tb->addAction("Select");
     m_selectModeAct->setCheckable(true);
-    m_selectModeAct->setToolTip("Select roads  [S]");
-    m_selectModeAct->setShortcut(Qt::Key_S);
+    m_selectModeAct->setToolTip("Select roads  [1]");
+    m_selectModeAct->setShortcut(Qt::Key_1);
     group->addAction(m_selectModeAct);
 
     m_editModeAct = tb->addAction("Edit");
     m_editModeAct->setCheckable(true);
     m_editModeAct->setChecked(true);
-    m_editModeAct->setToolTip("Edit control points  [E]");
-    m_editModeAct->setShortcut(Qt::Key_E);
+    m_editModeAct->setToolTip("Edit control points  [2]");
+    m_editModeAct->setShortcut(Qt::Key_2);
     group->addAction(m_editModeAct);
 
     m_verticalModeAct = tb->addAction("Vertical");
     m_verticalModeAct->setCheckable(true);
-    m_verticalModeAct->setToolTip("Edit vertical curve points  [V]");
-    m_verticalModeAct->setShortcut(Qt::Key_V);
+    m_verticalModeAct->setToolTip("Edit vertical curve points  [3]");
+    m_verticalModeAct->setShortcut(Qt::Key_3);
     group->addAction(m_verticalModeAct);
 
     m_bankModeAct = tb->addAction("Bank");
     m_bankModeAct->setCheckable(true);
-    m_bankModeAct->setToolTip("Edit bank angle points  [B]");
-    m_bankModeAct->setShortcut(Qt::Key_B);
+    m_bankModeAct->setToolTip("Edit bank angle points  [4]");
+    m_bankModeAct->setShortcut(Qt::Key_4);
     group->addAction(m_bankModeAct);
 
     m_laneModeAct = tb->addAction("Lane");
     m_laneModeAct->setCheckable(true);
-    m_laneModeAct->setToolTip("Edit lane section points  [L]");
-    m_laneModeAct->setShortcut(Qt::Key_L);
+    m_laneModeAct->setToolTip("Edit lane section points  [5]");
+    m_laneModeAct->setShortcut(Qt::Key_5);
     group->addAction(m_laneModeAct);
 
     tb->addSeparator();
@@ -261,6 +261,11 @@ void MainWindow::setupMenuBar() {
     m_wireframeAct->setToolTip("Toggle wireframe display  [W]");
     m_wireframeAct->setShortcut(Qt::Key_W);
     connect(m_wireframeAct, &QAction::toggled, m_viewport, &Viewport3D::setWireframe);
+
+    m_directionArrowsAct = view->addAction("Road Direction Arrows");
+    m_directionArrowsAct->setCheckable(true);
+    m_directionArrowsAct->setToolTip("Toggle road direction arrows");
+    connect(m_directionArrowsAct, &QAction::toggled, m_viewport, &Viewport3D::setRoadDirectionArrowsVisible);
 }
 
 void MainWindow::openFile() {

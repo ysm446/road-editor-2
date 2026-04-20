@@ -45,6 +45,7 @@ private:
     QAction* m_createIntersectionAct = nullptr;
     QAction* m_gridAct        = nullptr;
     QAction* m_wireframeAct   = nullptr;
+    QAction* m_directionArrowsAct = nullptr;
     QMenu* m_recentFilesMenu  = nullptr;
 
     QString m_currentPath;

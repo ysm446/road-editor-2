@@ -250,7 +250,7 @@ void TerrainRenderer::draw(QOpenGLFunctions_4_1_Core* f,
                            Shader& shader,
                            const glm::mat4& vp,
                            bool wireframe) const {
-    if (!m_hasData)
+    if (!m_hasData || !m_settings.visible)
         return;
 
     f->glDisable(GL_CULL_FACE);

@@ -44,6 +44,7 @@ public slots:
     void setEditSubTool(EditSubTool subTool);
     void setGridVisible(bool on);
     void setRoadDirectionArrowsVisible(bool on);
+    void setSnapToTerrainWhileMoving(bool on);
     void applyRoadProperties(int roadIdx, RoadProperties props);
     void applySelectedVerticalCurveProperties(int roadIdx, int curveIdx, float u, float vcl, float offset);
     void removeSelectedVerticalCurve(int roadIdx, int curveIdx);
@@ -142,6 +143,7 @@ private:
     bool           m_glReady   = false;
     bool           m_showGrid  = true;
     bool           m_wireframe = false;
+    bool           m_snapToTerrainWhileMoving = false;
 
     RoadNetwork    m_network;
     RoadRenderer   m_roadRenderer;

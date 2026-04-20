@@ -72,6 +72,7 @@ bool EnvironmentSerializer::loadFromFile(const QString& path, EnvironmentState& 
     if (doc.contains("terrain") && doc["terrain"].is_object()) {
         const auto& jt = doc["terrain"];
         env.terrain.enabled = jt.value("enabled", false);
+        env.terrain.visible = jt.value("visible", true);
         env.terrain.path =
             resolvePathFromEnvironment(path, QString::fromStdString(jt.value("path", std::string())))
                 .toStdString();
@@ -107,6 +108,7 @@ bool EnvironmentSerializer::saveToFile(const QString& path, const EnvironmentSta
     doc["version"] = 1;
     doc["terrain"] = {
         {"enabled", env.terrain.enabled},
+        {"visible", env.terrain.visible},
         {"path", makePathRelativeToEnvironment(path, QString::fromStdString(env.terrain.path)).toStdString()},
         {"texturePath", makePathRelativeToEnvironment(path, QString::fromStdString(env.terrain.texturePath)).toStdString()},
         {"width", env.terrain.width},

@@ -23,7 +23,8 @@ public:
     void draw   (QOpenGLFunctions_4_1_Core* f,
                  Shader& lineShader, Shader& screenLineShader,
                  Shader& roadShader, Shader& pointShader,
-                 const glm::mat4& vp, const glm::vec2& viewportSize);
+                 const glm::mat4& vp, const glm::vec2& viewportSize,
+                 ToolMode mode);
 
     void setWireframe (bool on) { m_wireframe  = on; }
     void setShowPoints(bool on) { m_showPoints = on; }
@@ -52,6 +53,7 @@ private:
     LineBatch m_selBatch;     // selected control point (orange)
     LineBatch m_selRoadOutline; // selected road halo
     LineBatch m_selRoad;      // selected road centerline highlight
+    LineBatch m_selCtrlLines; // selected road control polygon highlight
     LineBatch m_selSockets;   // selected intersection sockets
     Mesh      m_surfaceMesh;       // road surface quads
     Mesh      m_intersectionMesh; // intersection fill

@@ -205,6 +205,7 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
     if (doc.contains("terrain") && doc["terrain"].is_object()) {
         const auto& jt = doc["terrain"];
         net.terrain.enabled = jt.value("enabled", true);
+        net.terrain.visible = jt.value("visible", true);
         net.terrain.path =
             resolvePathFromProject(path, QString::fromStdString(jt.value("path", std::string())))
                 .toStdString();
@@ -310,6 +311,7 @@ bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
     if (net.terrain.enabled && !net.terrain.path.empty()) {
         doc["terrain"] = {
             {"enabled", net.terrain.enabled},
+            {"visible", net.terrain.visible},
             {"path", makePathRelativeToProject(path, QString::fromStdString(net.terrain.path)).toStdString()},
             {"texturePath", makePathRelativeToProject(path, QString::fromStdString(net.terrain.texturePath)).toStdString()},
             {"width", net.terrain.width},

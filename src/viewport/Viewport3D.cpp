@@ -141,7 +141,8 @@ void Viewport3D::paintGL() {
         m_grid.draw(this, m_lineShader, vp);
     m_roadRenderer.draw(this, m_lineShader, m_screenLineShader,
                         m_roadShader, m_pointShader, vp,
-                        glm::vec2(static_cast<float>(width()), static_cast<float>(height())));
+                        glm::vec2(static_cast<float>(width()), static_cast<float>(height())),
+                        m_editor.mode);
 
     if (m_glReady && m_editor.mode == ToolMode::Edit) {
         const bool showGizmo = m_editor.sel.valid() || m_editor.sel.hasIntersection();
@@ -401,6 +402,10 @@ void Viewport3D::setGridVisible(bool on) {
 void Viewport3D::setRoadDirectionArrowsVisible(bool on) {
     m_roadRenderer.setShowDirectionArrows(on);
     update();
+}
+
+void Viewport3D::setSnapToTerrainWhileMoving(bool on) {
+    m_snapToTerrainWhileMoving = on;
 }
 
 bool Viewport3D::reloadTerrain(QString* errorMessage) {
@@ -2349,6 +2354,15 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
                 for (const auto& origin : m_pointDragOrigins) {
                     auto& pos = m_network.roads[origin.point.roadIdx].points[origin.point.pointIdx].pos;
                     pos = origin.pos + deltaWorld;
+                }
+            }
+
+            if (m_snapToTerrainWhileMoving && m_editor.mode == ToolMode::Edit && m_terrainRenderer.hasData()) {
+                for (const auto& selPt : m_editor.sel.points) {
+                    auto& pos = m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos;
+                    float terrainY = 0.0f;
+                    if (m_terrainRenderer.sampleWorldHeight(pos.x, pos.z, terrainY))
+                        pos.y = terrainY;
                 }
             }
 

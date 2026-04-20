@@ -7,6 +7,7 @@ class QLabel;
 class QPushButton;
 class QDoubleSpinBox;
 class QSpinBox;
+class QCheckBox;
 
 class HeightmapPanel : public QWidget {
     Q_OBJECT
@@ -29,6 +30,7 @@ signals:
     void clearRequested();
     void importTextureRequested();
     void clearTextureRequested();
+    void snapWhileMovingChanged(bool enabled);
     void settingsChanged(const TerrainSettings& settings);
 
 private:
@@ -50,4 +52,6 @@ private:
     QDoubleSpinBox* m_offsetZSpin = nullptr;
     QSpinBox*       m_meshCellsXSpin = nullptr;
     QSpinBox*       m_meshCellsZSpin = nullptr;
+    QCheckBox*      m_visibleCheck = nullptr;
+    QCheckBox*      m_snapWhileMovingCheck = nullptr;
 };

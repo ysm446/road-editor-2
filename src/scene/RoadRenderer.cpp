@@ -57,6 +57,7 @@ void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
     m_selBatch.init(f);
     m_selRoadOutline.init(f);
     m_selRoad.init(f);
+    m_selCtrlLines.init(f);
     m_selSockets.init(f);
     m_surfaceMesh.init(f);
     m_intersectionMesh.init(f);
@@ -274,6 +275,7 @@ void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
     const glm::vec3 kSelPt   = {1.0f, 0.55f, 0.0f};
     const glm::vec3 kSelRoadOutline = {0.02f, 0.08f, 0.12f};
     const glm::vec3 kSelRoad = {0.2f, 0.9f, 1.0f};
+    const glm::vec3 kSelCtrlLine = {0.75f, 0.75f, 0.75f};
     const glm::vec3 kSelSocket = {1.0f, 0.85f, 0.15f};
 
     m_selBatch.begin();
@@ -292,9 +294,14 @@ void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
 
     m_selRoadOutline.begin();
     m_selRoad.begin();
+    m_selCtrlLines.begin();
     for (int roadIdx : selectedRoads) {
         if (roadIdx < 0 || roadIdx >= (int)net.roads.size()) continue;
         const auto& road = net.roads[roadIdx];
+        for (size_t i = 0; i + 1 < road.points.size(); ++i) {
+            m_selCtrlLines.addLine(toGL(road.points[i].pos),
+                                   toGL(road.points[i + 1].pos), kSelCtrlLine);
+        }
         auto baseCurve = ClothoidGen::buildCenterlineDetailedResampled(
             road.points, road.segmentLength, road.equalMidpoint);
         auto curve = VerticalCurveGen::applyDetailed(road, baseCurve, road.segmentLength);
@@ -307,6 +314,7 @@ void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
     }
     m_selRoadOutline.upload(f);
     m_selRoad.upload(f);
+    m_selCtrlLines.upload(f);
 
     m_selSockets.begin();
     if (sel.hasIntersection() &&
@@ -326,7 +334,8 @@ void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
 void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
                         Shader& lineShader, Shader& screenLineShader,
                         Shader& roadShader, Shader& pointShader,
-                        const glm::mat4& vp, const glm::vec2& viewportSize) {
+                        const glm::mat4& vp, const glm::vec2& viewportSize,
+                        ToolMode mode) {
     if (!m_ready || !m_hasData) return;
 
     f->glDisable(GL_CULL_FACE);
@@ -376,14 +385,19 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
     if (m_showDirectionArrows)
         m_directionArrows.draw(f, lineShader, vp);
 
-    m_selRoadOutline.drawScreenLines(f, screenLineShader, vp, viewportSize, 10.0f, 2e-4f);
-    m_selRoad.drawScreenLines(f, screenLineShader, vp, viewportSize, 5.0f, 2e-4f);
+    if (mode == ToolMode::Select) {
+        m_selRoad.drawScreenLines(f, screenLineShader, vp, viewportSize, 5.0f, 2e-4f);
+    } else if (mode == ToolMode::Edit) {
+        m_selCtrlLines.drawScreenLines(f, screenLineShader, vp, viewportSize, 2.0f, 2e-4f);
+    }
 
     f->glEnable(GL_PROGRAM_POINT_SIZE);
+    const float allPointSize = (mode == ToolMode::Edit) ? 12.0f : 10.0f;
+    const float selectedPointSize = (mode == ToolMode::Edit) ? 16.0f : 14.0f;
     if (m_showPoints)
-        m_allPoints.drawPoints(f, pointShader, vp, 10.0f);
+        m_allPoints.drawPoints(f, pointShader, vp, allPointSize);
     m_socketPoints.drawPoints(f, pointShader, vp, 9.0f);
-    m_selBatch.drawPoints(f, pointShader, vp, 14.0f);
+    m_selBatch.drawPoints(f, pointShader, vp, selectedPointSize);
     m_selSockets.drawPoints(f, pointShader, vp, 15.0f);
     f->glDisable(GL_PROGRAM_POINT_SIZE);
 }
@@ -400,6 +414,7 @@ void RoadRenderer::destroy(QOpenGLFunctions_4_1_Core* f) {
     m_selBatch.destroy(f);
     m_selRoadOutline.destroy(f);
     m_selRoad.destroy(f);
+    m_selCtrlLines.destroy(f);
     m_selSockets.destroy(f);
     m_surfaceMesh.destroy(f);
     m_intersectionMesh.destroy(f);

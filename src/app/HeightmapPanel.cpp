@@ -7,6 +7,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QCheckBox>
 #include <QSignalBlocker>
 #include <QSpinBox>
 #include <QVBoxLayout>
@@ -52,6 +53,12 @@ HeightmapPanel::HeightmapPanel(QWidget* parent)
     auto* settingsGroup = new QGroupBox("Settings", this);
     auto* form = new QFormLayout(settingsGroup);
     form->setLabelAlignment(Qt::AlignRight);
+
+    m_visibleCheck = new QCheckBox("Show Heightmap", this);
+    form->addRow("Display:", m_visibleCheck);
+
+    m_snapWhileMovingCheck = new QCheckBox("Snap While Moving", this);
+    form->addRow("Edit:", m_snapWhileMovingCheck);
 
     m_sizeSpin = new QDoubleSpinBox(this);
     m_sizeSpin->setRange(1.0, 100000.0);
@@ -130,6 +137,8 @@ HeightmapPanel::HeightmapPanel(QWidget* parent)
     connect(m_offsetZSpin, &QDoubleSpinBox::valueChanged, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
     connect(m_meshCellsXSpin, &QSpinBox::valueChanged, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
     connect(m_meshCellsZSpin, &QSpinBox::valueChanged, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
+    connect(m_visibleCheck, &QCheckBox::toggled, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
+    connect(m_snapWhileMovingCheck, &QCheckBox::toggled, this, &HeightmapPanel::snapWhileMovingChanged);
 
     updateUiEnabledState(false);
 }
@@ -151,6 +160,7 @@ void HeightmapPanel::setNetwork(const RoadNetwork* net) {
         const QSignalBlocker blockOffsetZ(m_offsetZSpin);
         const QSignalBlocker blockCellsX(m_meshCellsXSpin);
         const QSignalBlocker blockCellsZ(m_meshCellsZSpin);
+        const QSignalBlocker blockVisible(m_visibleCheck);
 
         if (hasTerrain) {
             const auto& terrain = m_net->terrain;
@@ -174,6 +184,7 @@ void HeightmapPanel::setNetwork(const RoadNetwork* net) {
             m_offsetZSpin->setValue(terrain.offset.z);
             m_meshCellsXSpin->setValue(terrain.meshCellsX);
             m_meshCellsZSpin->setValue(terrain.meshCellsZ);
+            m_visibleCheck->setChecked(terrain.visible);
         } else {
             m_pathLabel->setText("No heightmap loaded");
             m_pathLabel->setToolTip({});
@@ -186,6 +197,7 @@ void HeightmapPanel::setNetwork(const RoadNetwork* net) {
             m_offsetZSpin->setValue(0.0);
             m_meshCellsXSpin->setValue(0);
             m_meshCellsZSpin->setValue(0);
+            m_visibleCheck->setChecked(true);
         }
     }
     m_updatingUi = false;
@@ -208,6 +220,7 @@ void HeightmapPanel::emitSettingsChanged() {
     settings.offset.z = static_cast<float>(m_offsetZSpin->value());
     settings.meshCellsX = m_meshCellsXSpin->value();
     settings.meshCellsZ = m_meshCellsZSpin->value();
+    settings.visible = m_visibleCheck->isChecked();
     emit settingsChanged(settings);
 }
 
@@ -238,4 +251,6 @@ void HeightmapPanel::updateUiEnabledState(bool hasTerrain) {
     m_offsetZSpin->setEnabled(hasTerrain);
     m_meshCellsXSpin->setEnabled(hasTerrain);
     m_meshCellsZSpin->setEnabled(hasTerrain);
+    m_visibleCheck->setEnabled(hasTerrain);
+    m_snapWhileMovingCheck->setEnabled(hasTerrain);
 }

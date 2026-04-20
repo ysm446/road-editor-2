@@ -88,6 +88,8 @@ MainWindow::MainWindow(QWidget* parent)
             this, &MainWindow::importTerrainTexture);
     connect(m_heightmap, &HeightmapPanel::clearTextureRequested,
             this, &MainWindow::clearTerrainTexture);
+    connect(m_heightmap, &HeightmapPanel::snapWhileMovingChanged,
+            m_viewport, &Viewport3D::setSnapToTerrainWhileMoving);
     connect(m_heightmap, &HeightmapPanel::settingsChanged,
             this, [this](const TerrainSettings& settings) {
                 QString errorMessage;

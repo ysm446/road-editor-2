@@ -44,3 +44,9 @@ void Shader::setFloat(QOpenGLFunctions_4_1_Core* f, const char* name, float v) {
     if (loc >= 0)
         f->glUniform1f(loc, v);
 }
+
+void Shader::setInt(QOpenGLFunctions_4_1_Core* f, const char* name, int v) {
+    int loc = m_prog.uniformLocation(name);
+    if (loc >= 0)
+        f->glUniform1i(loc, v);
+}

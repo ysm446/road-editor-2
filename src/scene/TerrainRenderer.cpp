@@ -1,6 +1,5 @@
 #include "TerrainRenderer.h"
 #include <QImage>
-#include <QFileInfo>
 #include <algorithm>
 #include <cmath>
 
@@ -24,6 +23,7 @@ void TerrainRenderer::init(QOpenGLFunctions_4_1_Core* f) {
 
 void TerrainRenderer::destroy(QOpenGLFunctions_4_1_Core* f) {
     m_mesh.destroy(f);
+    clearTexture(f);
     m_heights.clear();
     m_ready = false;
     m_hasData = false;
@@ -71,6 +71,14 @@ bool TerrainRenderer::loadFromSettings(QOpenGLFunctions_4_1_Core* f,
     }
 
     buildMesh(f);
+    if (!settings.texturePath.empty()) {
+        if (!loadTexture(f, QString::fromStdString(settings.texturePath), errorMessage)) {
+            clear(f);
+            return false;
+        }
+    } else {
+        clearTexture(f);
+    }
     m_hasData = true;
     if (errorMessage)
         errorMessage->clear();
@@ -79,12 +87,48 @@ bool TerrainRenderer::loadFromSettings(QOpenGLFunctions_4_1_Core* f,
 
 void TerrainRenderer::clear(QOpenGLFunctions_4_1_Core* f) {
     m_mesh.upload(f, {}, {});
+    clearTexture(f);
     m_heights.clear();
     m_hasData = false;
     m_rawWidth = 0;
     m_rawHeight = 0;
     m_meshWidth = 0;
     m_meshHeight = 0;
+}
+
+bool TerrainRenderer::loadTexture(QOpenGLFunctions_4_1_Core* f, const QString& path, QString* errorMessage) {
+    QImage image(path);
+    if (image.isNull()) {
+        if (errorMessage)
+            *errorMessage = QString("地形テクスチャを開けませんでした: %1").arg(path);
+        return false;
+    }
+
+    image = image.convertToFormat(QImage::Format_RGBA8888).flipped(Qt::Vertical);
+    if (m_texture == 0)
+        f->glGenTextures(1, &m_texture);
+
+    f->glBindTexture(GL_TEXTURE_2D, m_texture);
+    f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    f->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, image.width(), image.height(),
+                    0, GL_RGBA, GL_UNSIGNED_BYTE, image.constBits());
+    f->glGenerateMipmap(GL_TEXTURE_2D);
+    f->glBindTexture(GL_TEXTURE_2D, 0);
+    m_hasTexture = true;
+    if (errorMessage)
+        errorMessage->clear();
+    return true;
+}
+
+void TerrainRenderer::clearTexture(QOpenGLFunctions_4_1_Core* f) {
+    if (m_texture != 0) {
+        f->glDeleteTextures(1, &m_texture);
+        m_texture = 0;
+    }
+    m_hasTexture = false;
 }
 
 float TerrainRenderer::sampleHeight(float x, float z) const {
@@ -196,7 +240,15 @@ void TerrainRenderer::draw(QOpenGLFunctions_4_1_Core* f,
     shader.setMat4(f, "u_mvp", vp);
     shader.setVec3(f, "u_sunDir", glm::normalize(glm::vec3(0.4f, 1.0f, 0.5f)));
     shader.setVec3(f, "u_color", glm::vec3(0.34f, 0.40f, 0.31f));
+    shader.setInt(f, "u_texture", 0);
+    shader.setInt(f, "u_useTexture", m_hasTexture ? 1 : 0);
+    if (m_hasTexture) {
+        f->glActiveTexture(GL_TEXTURE0);
+        f->glBindTexture(GL_TEXTURE_2D, m_texture);
+    }
     m_mesh.draw(f);
+    if (m_hasTexture)
+        f->glBindTexture(GL_TEXTURE_2D, 0);
     shader.unbind();
 
     f->glDisable(GL_POLYGON_OFFSET_FILL);
@@ -209,6 +261,8 @@ void TerrainRenderer::draw(QOpenGLFunctions_4_1_Core* f,
         shader.setMat4(f, "u_mvp", vp);
         shader.setVec3(f, "u_sunDir", glm::normalize(glm::vec3(0.4f, 1.0f, 0.5f)));
         shader.setVec3(f, "u_color", glm::vec3(0.20f, 0.26f, 0.18f));
+        shader.setInt(f, "u_texture", 0);
+        shader.setInt(f, "u_useTexture", 0);
         m_mesh.draw(f);
         shader.unbind();
         f->glDisable(GL_POLYGON_OFFSET_LINE);

@@ -30,6 +30,8 @@ public:
     void loadNetwork(const QString& path);
     bool importHeightmap(const QString& path, QString* errorMessage = nullptr);
     void clearHeightmap();
+    bool importTerrainTexture(const QString& path, QString* errorMessage = nullptr);
+    void clearTerrainTexture();
     bool updateTerrainSettings(const TerrainSettings& settings, QString* errorMessage = nullptr);
 
     const RoadNetwork& network() const { return m_network; }
@@ -37,6 +39,7 @@ public:
 public slots:
     void setToolMode(ToolMode m);
     void setEditSubTool(EditSubTool subTool);
+    void setGridVisible(bool on);
     void applyRoadProperties(int roadIdx, RoadProperties props);
     void applySelectedVerticalCurveProperties(int roadIdx, int curveIdx, float u, float vcl, float offset);
     void removeSelectedVerticalCurve(int roadIdx, int curveIdx);
@@ -131,6 +134,7 @@ private:
     bool           m_leftButtonDown = false;
     float          m_aspect    = 1.0f;
     bool           m_glReady   = false;
+    bool           m_showGrid  = true;
     bool           m_wireframe = false;
 
     RoadNetwork    m_network;

@@ -274,6 +274,8 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
     roadShader.setMat4(f, "u_mvp", vp);
     roadShader.setVec3(f, "u_sunDir", glm::normalize(glm::vec3(0.4f, 1.0f, 0.5f)));
     roadShader.setVec3(f, "u_color", glm::vec3(0.30f, 0.30f, 0.30f));
+    roadShader.setInt(f, "u_useTexture", 0);
+    roadShader.setInt(f, "u_texture", 0);
     m_surfaceMesh.draw(f);
     roadShader.setVec3(f, "u_color", glm::vec3(0.25f, 0.25f, 0.28f));
     m_intersectionMesh.draw(f);
@@ -290,6 +292,8 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
         roadShader.setMat4(f, "u_mvp", vp);
         roadShader.setVec3(f, "u_sunDir", glm::normalize(glm::vec3(0.4f, 1.0f, 0.5f)));
         roadShader.setVec3(f, "u_color", glm::vec3(0.20f, 0.20f, 0.22f));
+        roadShader.setInt(f, "u_useTexture", 0);
+        roadShader.setInt(f, "u_texture", 0);
         m_surfaceMesh.draw(f);
         m_intersectionMesh.draw(f);
         roadShader.unbind();

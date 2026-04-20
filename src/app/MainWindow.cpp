@@ -82,6 +82,10 @@ MainWindow::MainWindow(QWidget* parent)
             this, &MainWindow::importHeightmap);
     connect(m_heightmap, &HeightmapPanel::clearRequested,
             this, &MainWindow::clearHeightmap);
+    connect(m_heightmap, &HeightmapPanel::importTextureRequested,
+            this, &MainWindow::importTerrainTexture);
+    connect(m_heightmap, &HeightmapPanel::clearTextureRequested,
+            this, &MainWindow::clearTerrainTexture);
     connect(m_heightmap, &HeightmapPanel::settingsChanged,
             this, [this](const TerrainSettings& settings) {
                 QString errorMessage;
@@ -112,7 +116,7 @@ void MainWindow::setupDocks() {
     outlinerDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     addDockWidget(Qt::LeftDockWidgetArea, outlinerDock);
 
-    auto* heightmapDock = new QDockWidget("Heightmap", this);
+    auto* heightmapDock = new QDockWidget("Terrain", this);
     m_heightmap = new HeightmapPanel(heightmapDock);
     heightmapDock->setWidget(m_heightmap);
     heightmapDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
@@ -240,6 +244,11 @@ void MainWindow::setupMenuBar() {
     menuBar()->addMenu("&Edit");
 
     auto* view = menuBar()->addMenu("&View");
+    m_gridAct = view->addAction("Grid");
+    m_gridAct->setCheckable(true);
+    m_gridAct->setChecked(true);
+    connect(m_gridAct, &QAction::toggled, m_viewport, &Viewport3D::setGridVisible);
+
     m_wireframeAct = view->addAction("Wireframe");
     m_wireframeAct->setCheckable(true);
     m_wireframeAct->setToolTip("Toggle wireframe display  [W]");
@@ -289,6 +298,30 @@ void MainWindow::importHeightmap() {
 void MainWindow::clearHeightmap() {
     m_viewport->clearHeightmap();
     statusBar()->showMessage(QStringLiteral("ハイトマップをクリアしました。"), 4000);
+}
+
+void MainWindow::importTerrainTexture() {
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        "Import Terrain Texture",
+        QString(),
+        "Image Files (*.png *.bmp *.jpg *.jpeg *.tif *.tiff);;All Files (*)");
+    if (path.isEmpty())
+        return;
+
+    QString errorMessage;
+    if (m_viewport->importTerrainTexture(path, &errorMessage)) {
+        statusBar()->showMessage(QString("Imported terrain texture: %1").arg(QFileInfo(path).fileName()), 5000);
+    } else {
+        statusBar()->showMessage(errorMessage.isEmpty() ? QStringLiteral("地形テクスチャの読み込みに失敗しました。")
+                                                        : errorMessage,
+                                 6000);
+    }
+}
+
+void MainWindow::clearTerrainTexture() {
+    m_viewport->clearTerrainTexture();
+    statusBar()->showMessage(QStringLiteral("地形テクスチャをクリアしました。"), 4000);
 }
 
 void MainWindow::onNetworkChanged() {

@@ -5,6 +5,7 @@
 struct TerrainSettings {
     bool        enabled   = false;
     std::string path;
+    std::string texturePath;
     float       width     = 1024.0f;
     float       depth     = 1024.0f;
     float       height    = 128.0f;
@@ -15,6 +16,7 @@ struct TerrainSettings {
     void clear() {
         enabled = false;
         path.clear();
+        texturePath.clear();
         width = 1024.0f;
         depth = 1024.0f;
         height = 128.0f;

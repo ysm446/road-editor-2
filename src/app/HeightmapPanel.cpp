@@ -35,6 +35,18 @@ HeightmapPanel::HeightmapPanel(QWidget* parent)
     buttonRow->addWidget(m_importButton);
     buttonRow->addWidget(m_clearButton);
     sourceLayout->addLayout(buttonRow);
+
+    m_texturePathLabel = new QLabel("No texture loaded", this);
+    m_texturePathLabel->setWordWrap(true);
+    sourceLayout->addWidget(m_texturePathLabel);
+
+    auto* textureButtonRow = new QHBoxLayout;
+    textureButtonRow->setContentsMargins(0, 0, 0, 0);
+    m_importTextureButton = new QPushButton("Import Texture...", this);
+    m_clearTextureButton = new QPushButton("Clear Texture", this);
+    textureButtonRow->addWidget(m_importTextureButton);
+    textureButtonRow->addWidget(m_clearTextureButton);
+    sourceLayout->addLayout(textureButtonRow);
     root->addWidget(sourceGroup);
 
     auto* settingsGroup = new QGroupBox("Settings", this);
@@ -98,6 +110,8 @@ HeightmapPanel::HeightmapPanel(QWidget* parent)
 
     connect(m_importButton, &QPushButton::clicked, this, &HeightmapPanel::requestImport);
     connect(m_clearButton, &QPushButton::clicked, this, &HeightmapPanel::requestClear);
+    connect(m_importTextureButton, &QPushButton::clicked, this, &HeightmapPanel::requestImportTexture);
+    connect(m_clearTextureButton, &QPushButton::clicked, this, &HeightmapPanel::requestClearTexture);
     connect(m_widthSpin, &QDoubleSpinBox::valueChanged, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
     connect(m_depthSpin, &QDoubleSpinBox::valueChanged, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
     connect(m_heightSpin, &QDoubleSpinBox::valueChanged, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
@@ -135,6 +149,15 @@ void HeightmapPanel::setNetwork(const RoadNetwork* net) {
             m_pathLabel->setText(info.fileName().isEmpty() ? QString::fromStdString(terrain.path)
                                                            : info.fileName());
             m_pathLabel->setToolTip(QDir::toNativeSeparators(QString::fromStdString(terrain.path)));
+            const QFileInfo textureInfo(QString::fromStdString(terrain.texturePath));
+            m_texturePathLabel->setText(
+                terrain.texturePath.empty()
+                    ? QStringLiteral("No texture loaded")
+                    : (textureInfo.fileName().isEmpty() ? QString::fromStdString(terrain.texturePath)
+                                                        : textureInfo.fileName()));
+            m_texturePathLabel->setToolTip(
+                terrain.texturePath.empty() ? QString()
+                                            : QDir::toNativeSeparators(QString::fromStdString(terrain.texturePath)));
             m_widthSpin->setValue(terrain.width);
             m_depthSpin->setValue(terrain.depth);
             m_heightSpin->setValue(terrain.height);
@@ -146,6 +169,8 @@ void HeightmapPanel::setNetwork(const RoadNetwork* net) {
         } else {
             m_pathLabel->setText("No heightmap loaded");
             m_pathLabel->setToolTip({});
+            m_texturePathLabel->setText("No texture loaded");
+            m_texturePathLabel->setToolTip({});
             m_widthSpin->setValue(1024.0);
             m_depthSpin->setValue(1024.0);
             m_heightSpin->setValue(128.0);
@@ -187,8 +212,18 @@ void HeightmapPanel::requestClear() {
     emit clearRequested();
 }
 
+void HeightmapPanel::requestImportTexture() {
+    emit importTextureRequested();
+}
+
+void HeightmapPanel::requestClearTexture() {
+    emit clearTextureRequested();
+}
+
 void HeightmapPanel::updateUiEnabledState(bool hasTerrain) {
     m_clearButton->setEnabled(hasTerrain);
+    m_importTextureButton->setEnabled(hasTerrain);
+    m_clearTextureButton->setEnabled(hasTerrain);
     m_widthSpin->setEnabled(hasTerrain);
     m_depthSpin->setEnabled(hasTerrain);
     m_heightSpin->setEnabled(hasTerrain);

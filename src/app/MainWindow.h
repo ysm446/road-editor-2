@@ -23,6 +23,8 @@ private slots:
     void openRecentFile();
     void importHeightmap();
     void clearHeightmap();
+    void importTerrainTexture();
+    void clearTerrainTexture();
 
 private:
     static constexpr int kMaxRecentFiles = 8;
@@ -39,6 +41,7 @@ private:
     QAction* m_laneModeAct    = nullptr;
     QAction* m_createRoadAct  = nullptr;
     QAction* m_createIntersectionAct = nullptr;
+    QAction* m_gridAct        = nullptr;
     QAction* m_wireframeAct   = nullptr;
     QMenu* m_recentFilesMenu  = nullptr;
 

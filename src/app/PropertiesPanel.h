@@ -54,11 +54,13 @@ private slots:
 
 private:
     void setRoadEnabled(bool on);
+    void setPointEnabled(bool on);
     void setVerticalCurveEnabled(bool on);
     void setBankAngleEnabled(bool on);
     void setLaneSectionEnabled(bool on);
     void setSocketEnabled(bool on);
     void populate(const Road& road);
+    void populatePoint(const Selection& sel);
     void populateVerticalCurve(const Road& road, int verticalCurveIdx);
     void populateBankAngle(const Road& road, int bankAngleIdx);
     void populateLaneSection(const Road& road, int laneSectionIdx);
@@ -66,6 +68,7 @@ private:
 
     const RoadNetwork* m_net     = nullptr;
     int                m_roadIdx = -1;
+    int                m_pointIdx = -1;
     int                m_verticalCurveIdx = -1;
     int                m_bankAngleIdx = -1;
     int                m_laneSectionIdx = -1;
@@ -73,6 +76,13 @@ private:
     int                m_socketIdx = -1;
 
     QLabel*         m_nameLabel;
+    QGroupBox*      m_pointGroup;
+    QLabel*         m_pointSummaryLabel;
+    QLabel*         m_pointRoadLabel;
+    QLabel*         m_pointIndexLabel;
+    QLabel*         m_pointXLabel;
+    QLabel*         m_pointYLabel;
+    QLabel*         m_pointZLabel;
     QGroupBox*      m_speedGroup;
     QGroupBox*      m_laneGroup;
     QGroupBox*      m_meshGroup;

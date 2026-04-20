@@ -184,6 +184,9 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
         net.terrain.path =
             resolvePathFromProject(path, QString::fromStdString(jt.value("path", std::string())))
                 .toStdString();
+        net.terrain.texturePath =
+            resolvePathFromProject(path, QString::fromStdString(jt.value("texturePath", std::string())))
+                .toStdString();
         net.terrain.width = jt.value("width", 1024.0f);
         net.terrain.depth = jt.value("depth", 1024.0f);
         net.terrain.height = jt.value("height", 128.0f);
@@ -280,6 +283,7 @@ bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
         doc["terrain"] = {
             {"enabled", net.terrain.enabled},
             {"path", makePathRelativeToProject(path, QString::fromStdString(net.terrain.path)).toStdString()},
+            {"texturePath", makePathRelativeToProject(path, QString::fromStdString(net.terrain.texturePath)).toStdString()},
             {"width", net.terrain.width},
             {"depth", net.terrain.depth},
             {"height", net.terrain.height},

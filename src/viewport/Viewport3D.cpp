@@ -133,7 +133,8 @@ void Viewport3D::paintGL() {
     glm::mat4 view = m_camera.viewMatrix();
     glm::mat4 vp   = m_camera.projMatrix(m_aspect) * view;
     m_terrainRenderer.draw(this, m_roadShader, vp, m_wireframe);
-    m_grid.draw(this, m_lineShader, vp);
+    if (m_showGrid)
+        m_grid.draw(this, m_lineShader, vp);
     m_roadRenderer.draw(this, m_lineShader, m_roadShader, m_pointShader, vp);
 
     if (m_glReady && m_editor.mode == ToolMode::Edit) {
@@ -383,6 +384,11 @@ void Viewport3D::setEditSubTool(EditSubTool subTool) {
 void Viewport3D::setWireframe(bool on) {
     m_wireframe = on;
     m_roadRenderer.setWireframe(on);
+    update();
+}
+
+void Viewport3D::setGridVisible(bool on) {
+    m_showGrid = on;
     update();
 }
 
@@ -665,6 +671,51 @@ void Viewport3D::clearHeightmap() {
     if (m_glReady) {
         makeCurrent();
         m_terrainRenderer.clear(this);
+        doneCurrent();
+    }
+    emit networkChanged();
+    update();
+}
+
+bool Viewport3D::importTerrainTexture(const QString& path, QString* errorMessage) {
+    if (path.isEmpty()) {
+        if (errorMessage)
+            *errorMessage = QStringLiteral("地形テクスチャのパスが空です。");
+        return false;
+    }
+    if (!m_network.terrain.enabled || m_network.terrain.path.empty()) {
+        if (errorMessage)
+            *errorMessage = QStringLiteral("先にハイトマップを読み込んでください。");
+        return false;
+    }
+
+    m_network.terrain.texturePath = QDir::toNativeSeparators(QFileInfo(path).absoluteFilePath()).toStdString();
+    if (!m_glReady) {
+        if (errorMessage)
+            errorMessage->clear();
+        emit networkChanged();
+        update();
+        return true;
+    }
+
+    makeCurrent();
+    const bool ok = reloadTerrain(errorMessage);
+    doneCurrent();
+    if (!ok)
+        return false;
+
+    emit networkChanged();
+    update();
+    return true;
+}
+
+void Viewport3D::clearTerrainTexture() {
+    if (!m_network.terrain.enabled)
+        return;
+    m_network.terrain.texturePath.clear();
+    if (m_glReady) {
+        makeCurrent();
+        reloadTerrain(nullptr);
         doneCurrent();
     }
     emit networkChanged();

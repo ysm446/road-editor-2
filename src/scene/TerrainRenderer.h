@@ -29,10 +29,14 @@ private:
     float sampleHeight(float x, float z) const;
     glm::vec3 buildVertexPosition(int col, int row) const;
     void buildMesh(QOpenGLFunctions_4_1_Core* f);
+    bool loadTexture(QOpenGLFunctions_4_1_Core* f, const QString& path, QString* errorMessage);
+    void clearTexture(QOpenGLFunctions_4_1_Core* f);
 
     Mesh               m_mesh;
     std::vector<float> m_heights;
     TerrainSettings    m_settings;
+    GLuint             m_texture = 0;
+    bool               m_hasTexture = false;
     int                m_rawWidth = 0;
     int                m_rawHeight = 0;
     int                m_meshWidth = 0;

@@ -50,6 +50,23 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     m_nameLabel->setStyleSheet("font-weight: bold; color: #aaa;");
     root->addWidget(m_nameLabel);
 
+    m_pointGroup = new QGroupBox("Point", this);
+    auto* pointForm = new QFormLayout(m_pointGroup);
+    pointForm->setLabelAlignment(Qt::AlignRight);
+    m_pointSummaryLabel = new QLabel("—", this);
+    m_pointRoadLabel = new QLabel("—", this);
+    m_pointIndexLabel = new QLabel("—", this);
+    m_pointXLabel = new QLabel("—", this);
+    m_pointYLabel = new QLabel("—", this);
+    m_pointZLabel = new QLabel("—", this);
+    pointForm->addRow("Selection:", m_pointSummaryLabel);
+    pointForm->addRow("Road:", m_pointRoadLabel);
+    pointForm->addRow("Point:", m_pointIndexLabel);
+    pointForm->addRow("X:", m_pointXLabel);
+    pointForm->addRow("Y:", m_pointYLabel);
+    pointForm->addRow("Z:", m_pointZLabel);
+    root->addWidget(m_pointGroup);
+
     // --- Speed ---
     m_speedGroup  = new QGroupBox("Speed", this);
     auto* speedForm = new QFormLayout(m_speedGroup);
@@ -296,6 +313,7 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     root->addStretch();
 
     setRoadEnabled(false);
+    setPointEnabled(false);
     setVerticalCurveEnabled(false);
     setBankAngleEnabled(false);
     setLaneSectionEnabled(false);
@@ -316,6 +334,7 @@ void PropertiesPanel::onSelectionChanged(int roadIdx) {
         if (m_socketIdx < 0 && m_verticalCurveIdx < 0 && m_bankAngleIdx < 0) {
             m_nameLabel->setText("—");
             setRoadEnabled(false);
+            setPointEnabled(false);
         }
         return;
     }
@@ -325,6 +344,7 @@ void PropertiesPanel::onSelectionChanged(int roadIdx) {
 
 void PropertiesPanel::onSelectionStateChanged(const Selection& sel) {
     m_roadIdx = sel.roadIdx;
+    m_pointIdx = sel.pointIdx;
     m_verticalCurveIdx = sel.verticalCurveIdx;
     m_bankAngleIdx = sel.bankAngleIdx;
     m_laneSectionIdx = sel.laneSectionIdx;
@@ -334,6 +354,7 @@ void PropertiesPanel::onSelectionStateChanged(const Selection& sel) {
     if (m_net && sel.hasVerticalCurve() &&
         sel.roadIdx >= 0 && sel.roadIdx < (int)m_net->roads.size()) {
         populateVerticalCurve(m_net->roads[sel.roadIdx], sel.verticalCurveIdx);
+        setPointEnabled(false);
         setVerticalCurveEnabled(true);
         setBankAngleEnabled(false);
         setLaneSectionEnabled(false);
@@ -348,6 +369,7 @@ void PropertiesPanel::onSelectionStateChanged(const Selection& sel) {
         sel.roadIdx >= 0 && sel.roadIdx < (int)m_net->roads.size()) {
         populateBankAngle(m_net->roads[sel.roadIdx], sel.bankAngleIdx);
         setVerticalCurveEnabled(false);
+        setPointEnabled(false);
         setBankAngleEnabled(true);
         setLaneSectionEnabled(false);
         setSocketEnabled(false);
@@ -362,6 +384,7 @@ void PropertiesPanel::onSelectionStateChanged(const Selection& sel) {
         populateLaneSection(m_net->roads[sel.roadIdx], sel.laneSectionIdx);
         setVerticalCurveEnabled(false);
         setBankAngleEnabled(false);
+        setPointEnabled(false);
         setLaneSectionEnabled(true);
         setSocketEnabled(false);
         setRoadEnabled(false);
@@ -373,12 +396,21 @@ void PropertiesPanel::onSelectionStateChanged(const Selection& sel) {
     if (m_net && sel.hasSocket() &&
         sel.intersectionIdx >= 0 && sel.intersectionIdx < (int)m_net->intersections.size()) {
         populateSocket(m_net->intersections[sel.intersectionIdx], sel.socketIdx);
+        setPointEnabled(false);
         setSocketEnabled(true);
         setRoadEnabled(false);
         return;
     }
 
     setSocketEnabled(false);
+    if (m_net && sel.valid()) {
+        populatePoint(sel);
+        setPointEnabled(true);
+        setRoadEnabled(false);
+        return;
+    }
+
+    setPointEnabled(false);
     if (m_net && m_roadIdx >= 0 && m_roadIdx < (int)m_net->roads.size()) {
         populate(m_net->roads[m_roadIdx]);
         setRoadEnabled(true);
@@ -391,6 +423,13 @@ void PropertiesPanel::onSelectionStateChanged(const Selection& sel) {
 void PropertiesPanel::onNetworkChanged() {
     if (m_net && m_roadIdx >= 0 && m_roadIdx < (int)m_net->roads.size())
         populate(m_net->roads[m_roadIdx]);
+    if (m_net && m_pointIdx >= 0 &&
+        m_roadIdx >= 0 && m_roadIdx < (int)m_net->roads.size() &&
+        m_pointIdx < (int)m_net->roads[m_roadIdx].points.size()) {
+        Selection sel;
+        sel.setSinglePoint(m_roadIdx, m_pointIdx);
+        populatePoint(sel);
+    }
     if (m_net && m_verticalCurveIdx >= 0 &&
         m_roadIdx >= 0 && m_roadIdx < (int)m_net->roads.size())
         populateVerticalCurve(m_net->roads[m_roadIdx], m_verticalCurveIdx);
@@ -440,6 +479,51 @@ void PropertiesPanel::populate(const Road& road) {
     m_equalMidpointCheck->setChecked(road.equalMidpoint);
 
     blockAll(false);
+}
+
+void PropertiesPanel::populatePoint(const Selection& sel) {
+    if (!m_net || sel.points.empty()) {
+        m_nameLabel->setText("—");
+        m_pointSummaryLabel->setText("—");
+        m_pointRoadLabel->setText("—");
+        m_pointIndexLabel->setText("—");
+        m_pointXLabel->setText("—");
+        m_pointYLabel->setText("—");
+        m_pointZLabel->setText("—");
+        return;
+    }
+
+    if (sel.points.size() > 1) {
+        m_nameLabel->setText(QString("Points / %1 selected").arg((int)sel.points.size()));
+        m_pointSummaryLabel->setText(QString("%1 points").arg((int)sel.points.size()));
+        m_pointRoadLabel->setText("—");
+        m_pointIndexLabel->setText("—");
+        m_pointXLabel->setText("—");
+        m_pointYLabel->setText("—");
+        m_pointZLabel->setText("—");
+        return;
+    }
+
+    const auto& selectedPoint = sel.points.front();
+    if (selectedPoint.roadIdx < 0 || selectedPoint.roadIdx >= (int)m_net->roads.size())
+        return;
+
+    const auto& road = m_net->roads[selectedPoint.roadIdx];
+    if (selectedPoint.pointIdx < 0 || selectedPoint.pointIdx >= (int)road.points.size())
+        return;
+
+    const QString roadName = road.name.empty()
+        ? QString::fromStdString(road.id)
+        : QString::fromStdString(road.name);
+    const auto& point = road.points[selectedPoint.pointIdx];
+
+    m_nameLabel->setText(roadName + QString(" / Point %1").arg(selectedPoint.pointIdx));
+    m_pointSummaryLabel->setText("Single point");
+    m_pointRoadLabel->setText(roadName);
+    m_pointIndexLabel->setText(QString::number(selectedPoint.pointIdx));
+    m_pointXLabel->setText(QString::number(point.pos.x, 'f', 3));
+    m_pointYLabel->setText(QString::number(point.pos.y, 'f', 3));
+    m_pointZLabel->setText(QString::number(point.pos.z, 'f', 3));
 }
 
 void PropertiesPanel::populateSocket(const Intersection& ix, int socketIdx) {
@@ -576,6 +660,10 @@ void PropertiesPanel::setRoadEnabled(bool on) {
     m_useLaneRight2Check->setEnabled(on); m_widthLaneRight2Spin->setEnabled(on);
     m_segmentLengthSpin->setEnabled(on);
     m_equalMidpointCheck->setEnabled(on);
+}
+
+void PropertiesPanel::setPointEnabled(bool on) {
+    m_pointGroup->setVisible(on);
 }
 
 void PropertiesPanel::setSocketEnabled(bool on) {

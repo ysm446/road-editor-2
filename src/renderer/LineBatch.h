@@ -23,6 +23,8 @@ public:
     // u_pointSize uniform must exist in the shader.
     void drawPoints(QOpenGLFunctions_4_1_Core* f, Shader& sh,
                     const glm::mat4& vp, float pointSize);
+    void drawScreenLines(QOpenGLFunctions_4_1_Core* f, Shader& sh, const glm::mat4& vp,
+                         const glm::vec2& viewportSize, float lineWidth, float depthBias = 1e-4f);
     void destroy(QOpenGLFunctions_4_1_Core* f);
 
     int vertexCount() const { return m_count; }

@@ -36,6 +36,7 @@ MainWindow::MainWindow(QWidget* parent)
     setupDocks();
     setupMenuBar();
     setupToolBar();
+    m_viewport->setToolMode(ToolMode::Select);
     loadRecentFiles();
     refreshRecentFilesMenu();
 
@@ -149,13 +150,13 @@ void MainWindow::setupToolBar() {
 
     m_selectModeAct = tb->addAction("Select");
     m_selectModeAct->setCheckable(true);
+    m_selectModeAct->setChecked(true);
     m_selectModeAct->setToolTip("Select roads  [1]");
     m_selectModeAct->setShortcut(Qt::Key_1);
     group->addAction(m_selectModeAct);
 
     m_editModeAct = tb->addAction("Edit");
     m_editModeAct->setCheckable(true);
-    m_editModeAct->setChecked(true);
     m_editModeAct->setToolTip("Edit control points  [2]");
     m_editModeAct->setShortcut(Qt::Key_2);
     group->addAction(m_editModeAct);

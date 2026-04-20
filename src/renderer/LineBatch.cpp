@@ -74,6 +74,21 @@ void LineBatch::drawPoints(QOpenGLFunctions_4_1_Core* f, Shader& sh,
     sh.unbind();
 }
 
+void LineBatch::drawScreenLines(QOpenGLFunctions_4_1_Core* f, Shader& sh, const glm::mat4& vp,
+                                const glm::vec2& viewportSize, float lineWidth, float depthBias) {
+    if (!m_ready || m_count == 0) return;
+
+    sh.bind();
+    sh.setMat4(f, "u_vp", vp);
+    sh.setVec2(f, "u_viewportSize", viewportSize);
+    sh.setFloat(f, "u_lineWidth", lineWidth);
+    sh.setFloat(f, "u_depthBias", depthBias);
+    f->glBindVertexArray(m_vao);
+    f->glDrawArrays(GL_LINES, 0, m_count);
+    f->glBindVertexArray(0);
+    sh.unbind();
+}
+
 void LineBatch::destroy(QOpenGLFunctions_4_1_Core* f) {
     if (m_vao) { f->glDeleteVertexArrays(1, &m_vao); m_vao = 0; }
     if (m_vbo) { f->glDeleteBuffers(1, &m_vbo);      m_vbo = 0; }

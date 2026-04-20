@@ -130,6 +130,7 @@ private:
     AxisGizmo      m_axisGizmo;
     LineBatch      m_boxOverlay;
     Shader         m_lineShader;
+    Shader         m_screenLineShader;
     Shader         m_roadShader;
     Shader         m_pointShader;
     QTimer         m_timer;

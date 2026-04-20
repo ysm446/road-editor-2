@@ -7,12 +7,14 @@
 
 class Shader {
 public:
-    bool load(const QString& vertPath, const QString& fragPath);
+    bool load(const QString& vertPath, const QString& fragPath,
+              const QString& geomPath = QString());
 
     void bind();
     void unbind();
 
     void setMat4 (QOpenGLFunctions_4_1_Core* f, const char* name, const glm::mat4& mat);
+    void setVec2 (QOpenGLFunctions_4_1_Core* f, const char* name, const glm::vec2& v);
     void setVec3 (QOpenGLFunctions_4_1_Core* f, const char* name, const glm::vec3& v);
     void setVec4 (QOpenGLFunctions_4_1_Core* f, const char* name, const glm::vec4& v);
     void setFloat(QOpenGLFunctions_4_1_Core* f, const char* name, float v);

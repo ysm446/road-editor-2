@@ -100,6 +100,10 @@ void Viewport3D::initializeGL() {
 
     if (!m_lineShader.load(shaderDir + "line.vert", shaderDir + "line.frag"))
         qWarning() << "Line shader load failed - check shaders/ directory";
+    if (!m_screenLineShader.load(shaderDir + "screen_line.vert",
+                                 shaderDir + "screen_line.frag",
+                                 shaderDir + "screen_line.geom"))
+        qWarning() << "Screen line shader load failed - check shaders/ directory";
     if (!m_roadShader.load(shaderDir + "road.vert", shaderDir + "road.frag"))
         qWarning() << "Road shader load failed - check shaders/ directory";
     if (!m_pointShader.load(shaderDir + "point.vert", shaderDir + "point.frag"))
@@ -135,7 +139,9 @@ void Viewport3D::paintGL() {
     m_terrainRenderer.draw(this, m_roadShader, vp, m_wireframe);
     if (m_showGrid)
         m_grid.draw(this, m_lineShader, vp);
-    m_roadRenderer.draw(this, m_lineShader, m_roadShader, m_pointShader, vp);
+    m_roadRenderer.draw(this, m_lineShader, m_screenLineShader,
+                        m_roadShader, m_pointShader, vp,
+                        glm::vec2(static_cast<float>(width()), static_cast<float>(height())));
 
     if (m_glReady && m_editor.mode == ToolMode::Edit) {
         const bool showGizmo = m_editor.sel.valid() || m_editor.sel.hasIntersection();

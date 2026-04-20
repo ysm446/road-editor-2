@@ -120,7 +120,7 @@ struct Selection {
 class EditorState {
 public:
     Selection sel;
-    ToolMode  mode = ToolMode::Edit;
+    ToolMode  mode = ToolMode::Select;
     EditSubTool editSubTool = EditSubTool::None;
 
     void pushUndo(const RoadNetwork& net);

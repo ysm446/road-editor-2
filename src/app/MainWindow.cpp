@@ -5,6 +5,7 @@
 #include "OutlinerPanel.h"
 #include "../viewport/Viewport3D.h"
 #include "../editor/EditorState.h"
+#include "../model/EnvironmentSerializer.h"
 #include "../model/Serializer.h"
 #include <QDockWidget>
 #include <QMenuBar>
@@ -225,12 +226,18 @@ void MainWindow::setupMenuBar() {
     openAct->setShortcut(QKeySequence::Open);
     connect(openAct, &QAction::triggered, this, &MainWindow::openFile);
 
+    auto* openEnvAct = file->addAction("Open &Environment...");
+    connect(openEnvAct, &QAction::triggered, this, &MainWindow::openEnvironmentFile);
+
     m_recentFilesMenu = file->addMenu("Recent Files");
     refreshRecentFilesMenu();
 
     auto* saveAct = file->addAction("&Save");
     saveAct->setShortcut(QKeySequence::Save);
     connect(saveAct, &QAction::triggered, this, &MainWindow::saveFile);
+
+    auto* saveEnvAct = file->addAction("Save En&vironment...");
+    connect(saveEnvAct, &QAction::triggered, this, &MainWindow::saveEnvironmentFile);
 
     auto* saveAsAct = file->addAction("Save &As...");
     saveAsAct->setShortcut(QKeySequence::SaveAs);
@@ -274,6 +281,51 @@ void MainWindow::saveFile() {
         Serializer::saveToFile(m_currentPath, m_viewport->network());
         addRecentFile(m_currentPath);
     }
+}
+
+void MainWindow::openEnvironmentFile() {
+    const QString path = QFileDialog::getOpenFileName(
+        this, "Open Environment", QString(),
+        "Environment (*.json);;All Files (*)");
+    if (path.isEmpty())
+        return;
+
+    EnvironmentState env;
+    if (!EnvironmentSerializer::loadFromFile(path, env)) {
+        statusBar()->showMessage(QStringLiteral("環境ファイルの読み込みに失敗しました。"), 6000);
+        return;
+    }
+
+    QString errorMessage;
+    if (!m_viewport->applyEnvironmentState(env, &errorMessage)) {
+        statusBar()->showMessage(
+            errorMessage.isEmpty() ? QStringLiteral("環境ファイルの適用に失敗しました。")
+                                   : errorMessage,
+            6000);
+        return;
+    }
+
+    m_currentEnvironmentPath = path;
+    statusBar()->showMessage(QString("Loaded environment: %1").arg(QFileInfo(path).fileName()), 5000);
+}
+
+void MainWindow::saveEnvironmentFile() {
+    if (m_currentEnvironmentPath.isEmpty()) {
+        m_currentEnvironmentPath = QFileDialog::getSaveFileName(
+            this, "Save Environment", QString(),
+            "Environment (*.json);;All Files (*)");
+    }
+    if (m_currentEnvironmentPath.isEmpty())
+        return;
+
+    if (!EnvironmentSerializer::saveToFile(m_currentEnvironmentPath, m_viewport->environmentState())) {
+        statusBar()->showMessage(QStringLiteral("環境ファイルの保存に失敗しました。"), 6000);
+        return;
+    }
+
+    statusBar()->showMessage(
+        QString("Saved environment: %1").arg(QFileInfo(m_currentEnvironmentPath).fileName()),
+        5000);
 }
 
 void MainWindow::importHeightmap() {

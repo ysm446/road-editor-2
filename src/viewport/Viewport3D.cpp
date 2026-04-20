@@ -749,6 +749,45 @@ bool Viewport3D::updateTerrainSettings(const TerrainSettings& settings, QString*
     return true;
 }
 
+EnvironmentState Viewport3D::environmentState() const {
+    EnvironmentState state;
+    state.terrain = m_network.terrain;
+    state.camera = m_camera.state();
+    return state;
+}
+
+bool Viewport3D::applyEnvironmentState(const EnvironmentState& state, QString* errorMessage) {
+    const TerrainSettings previousTerrain = m_network.terrain;
+    const CameraState previousCamera = m_camera.state();
+
+    m_network.terrain = state.terrain;
+    m_camera.applyState(state.camera);
+
+    if (!m_glReady) {
+        if (errorMessage)
+            errorMessage->clear();
+        emit networkChanged();
+        update();
+        return true;
+    }
+
+    makeCurrent();
+    const bool ok = reloadTerrain(errorMessage);
+    if (!ok) {
+        m_network.terrain = previousTerrain;
+        m_camera.applyState(previousCamera);
+        reloadTerrain(nullptr);
+    }
+    doneCurrent();
+
+    if (!ok)
+        return false;
+
+    emit networkChanged();
+    update();
+    return true;
+}
+
 glm::vec3 Viewport3D::screenToRay(const QPoint& p) const {
     float ndcX = (2.0f * p.x()) / width() - 1.0f;
     float ndcY = -(2.0f * p.y()) / height() + 1.0f;

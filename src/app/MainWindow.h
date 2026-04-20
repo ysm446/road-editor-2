@@ -19,6 +19,8 @@ public:
 private slots:
     void openFile();
     void saveFile();
+    void openEnvironmentFile();
+    void saveEnvironmentFile();
     void onNetworkChanged();
     void openRecentFile();
     void importHeightmap();
@@ -46,6 +48,7 @@ private:
     QMenu* m_recentFilesMenu  = nullptr;
 
     QString m_currentPath;
+    QString m_currentEnvironmentPath;
     QStringList m_recentFiles;
 
     void setupDocks();

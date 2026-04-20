@@ -13,6 +13,24 @@ glm::vec3 Camera::position() const {
     );
 }
 
+CameraState Camera::state() const {
+    CameraState state;
+    state.target = m_target;
+    state.distance = m_distance;
+    state.yaw = m_yaw;
+    state.pitch = m_pitch;
+    state.fovDeg = m_fovDeg;
+    return state;
+}
+
+void Camera::applyState(const CameraState& state) {
+    m_target = state.target;
+    m_distance = std::clamp(state.distance, 1.0f, 4000.0f);
+    m_yaw = state.yaw;
+    m_pitch = std::clamp(state.pitch, -1.4f, 1.4f);
+    m_fovDeg = std::clamp(state.fovDeg, 10.0f, 120.0f);
+}
+
 void Camera::setTarget(const glm::vec3& target) {
     m_target = target;
 }

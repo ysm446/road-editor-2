@@ -14,6 +14,7 @@
 #include "AxisGizmo.h"
 #include "../renderer/LineBatch.h"
 #include "../renderer/Shader.h"
+#include "../model/EnvironmentState.h"
 #include "../model/RoadNetwork.h"
 #include "../scene/RoadRenderer.h"
 #include "../scene/TerrainRenderer.h"
@@ -33,6 +34,8 @@ public:
     bool importTerrainTexture(const QString& path, QString* errorMessage = nullptr);
     void clearTerrainTexture();
     bool updateTerrainSettings(const TerrainSettings& settings, QString* errorMessage = nullptr);
+    EnvironmentState environmentState() const;
+    bool applyEnvironmentState(const EnvironmentState& state, QString* errorMessage = nullptr);
 
     const RoadNetwork& network() const { return m_network; }
 

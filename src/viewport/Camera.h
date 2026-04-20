@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include "../model/EnvironmentState.h"
 
 // Orbit camera (Maya-style: Alt+LMB rotate, Alt+MMB pan, Alt+wheel zoom).
 // World space: right-handed, Y-up, X+ right.
@@ -11,6 +12,8 @@ public:
     glm::mat4 viewMatrix() const;
     glm::mat4 projMatrix(float aspect) const;
     glm::vec3 position() const;
+    CameraState state() const;
+    void applyState(const CameraState& state);
     void setTarget(const glm::vec3& target);
 
     void orbit(float dx, float dy); // pixels

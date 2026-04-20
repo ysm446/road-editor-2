@@ -13,6 +13,10 @@ glm::vec3 Camera::position() const {
     );
 }
 
+void Camera::setTarget(const glm::vec3& target) {
+    m_target = target;
+}
+
 glm::mat4 Camera::viewMatrix() const {
     return glm::lookAt(position(), m_target, glm::vec3(0.0f, 1.0f, 0.0f));
 }

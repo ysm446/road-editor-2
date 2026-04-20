@@ -12,6 +12,7 @@ int main(int argc, char* argv[]) {
     QSurfaceFormat::setDefaultFormat(fmt);
 
     QApplication app(argc, argv);
+    app.setOrganizationName("RoadEditor");
     app.setApplicationName("Road Editor 2");
 
     MainWindow window;

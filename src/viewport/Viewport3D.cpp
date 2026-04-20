@@ -2550,6 +2550,18 @@ void Viewport3D::keyPressEvent(QKeyEvent* e) {
         }
     }
 
+    if (e->key() == Qt::Key_F &&
+        e->modifiers() == Qt::NoModifier &&
+        m_editor.mode == ToolMode::Edit) {
+        if (m_editor.sel.valid()) {
+            const glm::vec3 focusPoint = selectionPivotGlPos();
+            m_camera.setTarget(focusPoint);
+            update();
+            e->accept();
+            return;
+        }
+    }
+
     QOpenGLWidget::keyPressEvent(e);
 }
 

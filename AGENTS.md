@@ -2,6 +2,11 @@
 
 This repository must be handled as UTF-8 text.
 
+## Coordinate System
+
+- This repository uses a left-handed coordinate system.
+- Unless a file or subsystem explicitly says otherwise, treat `+Y` as up and keep handedness conversions intentional and explicit.
+
 ## Encoding Rules
 
 - Read and write all text files as UTF-8.

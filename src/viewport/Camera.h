@@ -12,6 +12,7 @@ public:
     glm::mat4 viewMatrix() const;
     glm::mat4 projMatrix(float aspect) const;
     glm::vec3 position() const;
+    void setTarget(const glm::vec3& target);
 
     void orbit(float dx, float dy); // pixels
     void pan(float dx, float dy);   // pixels

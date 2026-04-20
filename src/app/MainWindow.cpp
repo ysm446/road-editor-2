@@ -12,10 +12,14 @@
 #include <QActionGroup>
 #include <QToolBar>
 #include <QApplication>
+#include <QDir>
 #include <QFileDialog>
 #include <QFile>
+#include <QFileInfo>
+#include <QSettings>
 #include <QTimer>
 #include <QTextEdit>
+#include <utility>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -29,6 +33,8 @@ MainWindow::MainWindow(QWidget* parent)
     setupDocks();
     setupMenuBar();
     setupToolBar();
+    loadRecentFiles();
+    refreshRecentFilesMenu();
 
     // Wire viewport signals to panels
     connect(m_viewport, &Viewport3D::selectionChanged,
@@ -190,6 +196,9 @@ void MainWindow::setupMenuBar() {
     openAct->setShortcut(QKeySequence::Open);
     connect(openAct, &QAction::triggered, this, &MainWindow::openFile);
 
+    m_recentFilesMenu = file->addMenu("Recent Files");
+    refreshRecentFilesMenu();
+
     auto* saveAct = file->addAction("&Save");
     saveAct->setShortcut(QKeySequence::Save);
     connect(saveAct, &QAction::triggered, this, &MainWindow::saveFile);
@@ -217,10 +226,8 @@ void MainWindow::openFile() {
     QString path = QFileDialog::getOpenFileName(
         this, "Open Road Network", QString(),
         "Road Network (*.json);;All Files (*)");
-    if (!path.isEmpty()) {
-        m_currentPath = path;
-        m_viewport->loadNetwork(path);
-    }
+    if (!path.isEmpty())
+        loadFile(path);
 }
 
 void MainWindow::saveFile() {
@@ -229,11 +236,117 @@ void MainWindow::saveFile() {
             this, "Save Road Network", QString(),
             "Road Network (*.json);;All Files (*)");
     }
-    if (!m_currentPath.isEmpty())
+    if (!m_currentPath.isEmpty()) {
         Serializer::saveToFile(m_currentPath, m_viewport->network());
+        addRecentFile(m_currentPath);
+    }
 }
 
 void MainWindow::onNetworkChanged() {
     m_properties->setNetwork(&m_viewport->network());
     m_outliner->refresh(&m_viewport->network());
+}
+
+void MainWindow::openRecentFile() {
+    auto* action = qobject_cast<QAction*>(sender());
+    if (!action)
+        return;
+
+    const QString path = action->data().toString();
+    if (!path.isEmpty())
+        loadFile(path, true);
+}
+
+void MainWindow::loadFile(const QString& path, bool addToRecent) {
+    if (path.isEmpty())
+        return;
+
+    if (!QFile::exists(path)) {
+        if (addToRecent) {
+            m_recentFiles.removeAll(QDir::toNativeSeparators(QFileInfo(path).absoluteFilePath()));
+            saveRecentFiles();
+            refreshRecentFilesMenu();
+        }
+        return;
+    }
+
+    m_currentPath = path;
+    m_viewport->loadNetwork(path);
+    if (addToRecent)
+        addRecentFile(path);
+}
+
+void MainWindow::addRecentFile(const QString& path) {
+    const QString normalizedPath = QDir::toNativeSeparators(QFileInfo(path).absoluteFilePath());
+    m_recentFiles.removeAll(normalizedPath);
+    m_recentFiles.prepend(normalizedPath);
+    while (m_recentFiles.size() > kMaxRecentFiles)
+        m_recentFiles.removeLast();
+
+    saveRecentFiles();
+    refreshRecentFilesMenu();
+}
+
+void MainWindow::loadRecentFiles() {
+    QSettings settings;
+    m_recentFiles = settings.value("file/recentFiles").toStringList();
+
+    QStringList normalized;
+    normalized.reserve(m_recentFiles.size());
+    for (const QString& path : std::as_const(m_recentFiles)) {
+        const QString absolutePath = QDir::toNativeSeparators(QFileInfo(path).absoluteFilePath());
+        if (absolutePath.isEmpty() || normalized.contains(absolutePath))
+            continue;
+        normalized.push_back(absolutePath);
+        if (normalized.size() >= kMaxRecentFiles)
+            break;
+    }
+    m_recentFiles = normalized;
+}
+
+void MainWindow::saveRecentFiles() const {
+    QSettings settings;
+    settings.setValue("file/recentFiles", m_recentFiles);
+}
+
+void MainWindow::refreshRecentFilesMenu() {
+    if (!m_recentFilesMenu)
+        return;
+
+    m_recentFilesMenu->clear();
+    QStringList existingFiles;
+    existingFiles.reserve(m_recentFiles.size());
+    for (const QString& path : std::as_const(m_recentFiles)) {
+        if (QFile::exists(path))
+            existingFiles.push_back(path);
+    }
+    if (existingFiles != m_recentFiles) {
+        m_recentFiles = existingFiles;
+        saveRecentFiles();
+    }
+
+    if (m_recentFiles.isEmpty()) {
+        auto* emptyAct = m_recentFilesMenu->addAction("(No Recent Files)");
+        emptyAct->setEnabled(false);
+        return;
+    }
+
+    for (int i = 0; i < m_recentFiles.size(); ++i) {
+        const QString& path = m_recentFiles[i];
+        const QString fileName = QFileInfo(path).fileName();
+        auto* action = m_recentFilesMenu->addAction(
+            QString("&%1 %2").arg(i + 1).arg(fileName));
+        action->setData(path);
+        action->setToolTip(path);
+        action->setStatusTip(path);
+        connect(action, &QAction::triggered, this, &MainWindow::openRecentFile);
+    }
+
+    m_recentFilesMenu->addSeparator();
+    auto* clearAct = m_recentFilesMenu->addAction("Clear Menu");
+    connect(clearAct, &QAction::triggered, this, [this] {
+        m_recentFiles.clear();
+        saveRecentFiles();
+        refreshRecentFilesMenu();
+    });
 }

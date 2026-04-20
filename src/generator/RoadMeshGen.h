@@ -6,7 +6,7 @@
 #include <vector>
 
 // Generates a road surface quad-strip mesh from a Road's control points.
-// Works in GL rendering space (X already flipped from world).
+// Works directly in the app's right-handed world/rendering space.
 class RoadMeshGen {
 public:
     // Appends generated vertices/indices into the output vectors (supports merging roads).
@@ -18,6 +18,5 @@ public:
                          const RoadNetwork*           net    = nullptr);
 
 private:
-    // Left-handed world (X+ left) → right-handed GL (X+ right)
-    static glm::vec3 toGL(const glm::vec3& p) { return {-p.x, p.y, p.z}; }
+    static glm::vec3 toGL(const glm::vec3& p) { return p; }
 };

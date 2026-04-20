@@ -7,7 +7,7 @@
 #include "../renderer/Shader.h"
 
 // 3-axis translation gizmo drawn at the selected control point.
-// All external positions are in GL rendering space (X already flipped from world).
+// All external positions are in the app's right-handed rendering space.
 class TransformGizmo {
 public:
     enum class Axis { None = -1, X = 0, Y = 1, Z = 2, Screen = 3 };
@@ -16,7 +16,7 @@ public:
     void destroy(QOpenGLFunctions_4_1_Core* f);
 
     // Rebuild arrow geometry at GL-space vertex position.
-    // camGlPos: camera position in GL space (for scale and center-handle orientation).
+    // camGlPos: camera position in rendering space (for scale and center-handle orientation).
     // highlight: axis to draw brighter (hover).
     void rebuild(QOpenGLFunctions_4_1_Core* f,
                  const glm::vec3& vertexGlPos,
@@ -32,8 +32,7 @@ public:
                  const glm::mat4& vpMatrix,
                  int vpW, int vpH) const;
 
-    // GL-space direction vector for a given axis.
-    // X maps to GL (-1,0,0) because world X+ is left-handed and GL flips it.
+    // Direction vector for a given axis in right-handed rendering space.
     static glm::vec3 axisDir(Axis a);
 
     // Returns t along the axis at the closest point to the given ray.

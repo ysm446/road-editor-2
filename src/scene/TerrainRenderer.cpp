@@ -167,7 +167,7 @@ glm::vec3 TerrainRenderer::buildVertexPosition(int col, int row) const {
     const float terrainZ = m_settings.offset.z + v * m_settings.depth - m_settings.depth * 0.5f;
     const float terrainY = m_settings.offset.y + sampleHeight(rawX, rawZ) * m_settings.height;
 
-    return {-terrainX, terrainY, terrainZ};
+    return {terrainX, terrainY, terrainZ};
 }
 
 void TerrainRenderer::buildMesh(QOpenGLFunctions_4_1_Core* f) {
@@ -195,7 +195,7 @@ void TerrainRenderer::buildMesh(QOpenGLFunctions_4_1_Core* f) {
 
             const glm::vec3 dx = buildVertexPosition(right, row) - buildVertexPosition(left, row);
             const glm::vec3 dz = buildVertexPosition(col, up) - buildVertexPosition(col, down);
-            glm::vec3 normal = glm::cross(dx, dz);
+            glm::vec3 normal = glm::cross(dz, dx);
             if (glm::length(normal) < 1e-6f)
                 normal = {0.0f, 1.0f, 0.0f};
             else

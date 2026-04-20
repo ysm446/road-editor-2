@@ -3,8 +3,7 @@
 #include <glm/glm.hpp>
 
 // Orbit camera (Maya-style: Alt+LMB rotate, Alt+MMB pan, Alt+wheel zoom).
-// World space: Y-up, Z+ toward viewer, X+ left (left-handed convention).
-// Internally uses right-handed GLM math; X-flip for rendering applied in viewport.
+// World space: right-handed, Y-up, X+ right.
 class Camera {
 public:
     Camera();

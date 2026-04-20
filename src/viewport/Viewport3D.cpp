@@ -186,7 +186,7 @@ void Viewport3D::paintGL() {
             return {x, y, 0.0f};
         };
         auto project = [&](const glm::vec3& worldPos) -> QPoint {
-            glm::vec4 clip = vp * glm::vec4(-worldPos.x, worldPos.y, worldPos.z, 1.0f);
+            glm::vec4 clip = vp * glm::vec4(worldPos, 1.0f);
             if (clip.w <= 0.0f) return QPoint(width() / 2, height() / 2);
             glm::vec3 ndc = glm::vec3(clip) / clip.w;
             return {
@@ -240,7 +240,7 @@ void Viewport3D::paintGL() {
         m_endpointHoverPointIdx < (int)m_network.roads[m_endpointHoverRoadIdx].points.size()) {
         const auto& pos = m_network.roads[m_endpointHoverRoadIdx].points[m_endpointHoverPointIdx].pos;
         m_boxOverlay.begin();
-        m_boxOverlay.addPoint(glm::vec3(-pos.x, pos.y, pos.z), {1.0f, 0.95f, 0.25f});
+        m_boxOverlay.addPoint(pos, {1.0f, 0.95f, 0.25f});
         m_boxOverlay.upload(this);
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_PROGRAM_POINT_SIZE);
@@ -259,7 +259,7 @@ void Viewport3D::paintGL() {
             glm::vec3 color = (m_editor.sel.hasVerticalCurve() && m_editor.sel.verticalCurveIdx == i)
                 ? glm::vec3(1.0f, 0.55f, 0.0f)
                 : glm::vec3(1.0f, 0.85f, 0.15f);
-            m_boxOverlay.addPoint(glm::vec3(-pos.x, pos.y, pos.z), color);
+            m_boxOverlay.addPoint(pos, color);
         }
         m_boxOverlay.upload(this);
         glDisable(GL_DEPTH_TEST);
@@ -279,7 +279,7 @@ void Viewport3D::paintGL() {
             glm::vec3 color = (m_editor.sel.hasBankAngle() && m_editor.sel.bankAngleIdx == i)
                 ? glm::vec3(1.0f, 0.55f, 0.0f)
                 : glm::vec3(0.2f, 0.95f, 1.0f);
-            m_boxOverlay.addPoint(glm::vec3(-pos.x, pos.y, pos.z), color);
+            m_boxOverlay.addPoint(pos, color);
         }
         m_boxOverlay.upload(this);
         glDisable(GL_DEPTH_TEST);
@@ -299,7 +299,7 @@ void Viewport3D::paintGL() {
             glm::vec3 color = (m_editor.sel.hasLaneSection() && m_editor.sel.laneSectionIdx == i)
                 ? glm::vec3(1.0f, 0.55f, 0.0f)
                 : glm::vec3(0.3f, 1.0f, 0.45f);
-            m_boxOverlay.addPoint(glm::vec3(-pos.x, pos.y, pos.z), color);
+            m_boxOverlay.addPoint(pos, color);
         }
         m_boxOverlay.upload(this);
         glDisable(GL_DEPTH_TEST);
@@ -316,13 +316,13 @@ void Viewport3D::paintGL() {
         if (m_editor.editSubTool == EditSubTool::CreateRoad) {
             for (size_t i = 0; i + 1 < m_pendingRoadPoints.size(); ++i)
                 m_boxOverlay.addLine(
-                    {-m_pendingRoadPoints[i].x, m_pendingRoadPoints[i].y, m_pendingRoadPoints[i].z},
-                    {-m_pendingRoadPoints[i + 1].x, m_pendingRoadPoints[i + 1].y, m_pendingRoadPoints[i + 1].z},
+                    m_pendingRoadPoints[i],
+                    m_pendingRoadPoints[i + 1],
                     color);
             if (!m_pendingRoadPoints.empty()) {
                 m_boxOverlay.addLine(
-                    {-m_pendingRoadPoints.back().x, m_pendingRoadPoints.back().y, m_pendingRoadPoints.back().z},
-                    {-m_createPreviewPos.x, m_createPreviewPos.y, m_createPreviewPos.z},
+                    m_pendingRoadPoints.back(),
+                    m_createPreviewPos,
                     color);
             }
         }
@@ -333,9 +333,9 @@ void Viewport3D::paintGL() {
         m_boxOverlay.begin();
         if (m_editor.editSubTool == EditSubTool::CreateRoad) {
             for (const auto& point : m_pendingRoadPoints)
-                m_boxOverlay.addPoint({-point.x, point.y, point.z}, color);
+                m_boxOverlay.addPoint(point, color);
         }
-        m_boxOverlay.addPoint({-m_createPreviewPos.x, m_createPreviewPos.y, m_createPreviewPos.z},
+        m_boxOverlay.addPoint(m_createPreviewPos,
                               {1.0f, 0.95f, 0.25f});
         m_boxOverlay.upload(this);
         glEnable(GL_PROGRAM_POINT_SIZE);
@@ -791,12 +791,11 @@ glm::vec3 Viewport3D::cameraForwardGl() const {
 }
 
 glm::vec3 Viewport3D::cameraGlPos() const {
-    glm::vec3 camPos = m_camera.position();
-    return {-camPos.x, camPos.y, camPos.z};
+    return m_camera.position();
 }
 
 glm::vec3 Viewport3D::toGlVector(const glm::vec3& v) const {
-    return {-v.x, v.y, v.z};
+    return v;
 }
 
 glm::vec3 Viewport3D::selectionPivotGlPos() const {
@@ -807,7 +806,7 @@ glm::vec3 Viewport3D::selectionPivotGlPos() const {
             if (selPt.roadIdx < 0 || selPt.roadIdx >= (int)m_network.roads.size()) continue;
             if (selPt.pointIdx < 0 || selPt.pointIdx >= (int)m_network.roads[selPt.roadIdx].points.size()) continue;
             const auto& pos = m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos;
-            sum += glm::vec3(-pos.x, pos.y, pos.z);
+            sum += pos;
             ++count;
         }
         if (count > 0) return sum / static_cast<float>(count);
@@ -819,14 +818,14 @@ glm::vec3 Viewport3D::selectionPivotGlPos() const {
         if (m_editor.sel.socketIdx >= 0 && m_editor.sel.socketIdx < (int)ix.sockets.size()) {
             const auto& socket = ix.sockets[m_editor.sel.socketIdx];
             glm::vec3 pos = ix.pos + socket.localPos;
-            return {-pos.x, pos.y, pos.z};
+            return pos;
         }
     }
 
     if (m_editor.sel.hasIntersection() &&
         m_editor.sel.intersectionIdx < (int)m_network.intersections.size()) {
         const auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
-        return {-ix.pos.x, ix.pos.y, ix.pos.z};
+        return ix.pos;
     }
 
     return {0.0f, 0.0f, 0.0f};
@@ -977,7 +976,7 @@ int Viewport3D::pickRoad(const QPoint& screenPos) const {
     glm::vec2 mp = {float(screenPos.x()), float(screenPos.y())};
 
     auto project = [&](glm::vec3 worldPos) -> std::pair<glm::vec2, bool> {
-        glm::vec4 clip = vp * glm::vec4(-worldPos.x, worldPos.y, worldPos.z, 1.0f);
+        glm::vec4 clip = vp * glm::vec4(worldPos, 1.0f);
         if (clip.w <= 0.0f) return {{}, false};
         glm::vec3 ndc = glm::vec3(clip) / clip.w;
         return {{(ndc.x + 1.0f) * 0.5f * width(),
@@ -1027,7 +1026,7 @@ int Viewport3D::pickIntersection(const QPoint& screenPos) const {
 
     for (int i = 0; i < (int)m_network.intersections.size(); ++i) {
         const auto& ix = m_network.intersections[i];
-        glm::vec4 clip = vp * glm::vec4(-ix.pos.x, ix.pos.y, ix.pos.z, 1.0f);
+        glm::vec4 clip = vp * glm::vec4(ix.pos, 1.0f);
         if (clip.w <= 0.0f) continue;
         glm::vec3 ndc = glm::vec3(clip) / clip.w;
         float sx = (ndc.x + 1.0f) * 0.5f * width();
@@ -1077,7 +1076,7 @@ bool Viewport3D::pickVerticalCurvePoint(const QPoint& screenPos, int& outRoadIdx
         const auto& road = m_network.roads[ri];
         for (int ci = 0; ci < (int)road.verticalCurve.size(); ++ci) {
             glm::vec3 pos = sampleRoadPosition(road, road.verticalCurve[ci].u);
-            glm::vec4 clip = vp * glm::vec4(-pos.x, pos.y, pos.z, 1.0f);
+            glm::vec4 clip = vp * glm::vec4(pos, 1.0f);
             if (clip.w <= 0.0f) continue;
             glm::vec3 ndc = glm::vec3(clip) / clip.w;
             float sx = (ndc.x + 1.0f) * 0.5f * width();
@@ -1109,7 +1108,7 @@ bool Viewport3D::pickBankAnglePoint(const QPoint& screenPos, int& outRoadIdx, in
         const auto& road = m_network.roads[ri];
         for (int ci = 0; ci < (int)road.bankAngle.size(); ++ci) {
             glm::vec3 pos = sampleRoadPosition(road, road.bankAngle[ci].u);
-            glm::vec4 clip = vp * glm::vec4(-pos.x, pos.y, pos.z, 1.0f);
+            glm::vec4 clip = vp * glm::vec4(pos, 1.0f);
             if (clip.w <= 0.0f) continue;
             glm::vec3 ndc = glm::vec3(clip) / clip.w;
             float sx = (ndc.x + 1.0f) * 0.5f * width();
@@ -1141,7 +1140,7 @@ bool Viewport3D::pickLaneSectionPoint(const QPoint& screenPos, int& outRoadIdx, 
         const auto& road = m_network.roads[ri];
         for (int ci = 0; ci < (int)road.laneSections.size(); ++ci) {
             glm::vec3 pos = sampleRoadPosition(road, road.laneSections[ci].u);
-            glm::vec4 clip = vp * glm::vec4(-pos.x, pos.y, pos.z, 1.0f);
+            glm::vec4 clip = vp * glm::vec4(pos, 1.0f);
             if (clip.w <= 0.0f) continue;
             glm::vec3 ndc = glm::vec3(clip) / clip.w;
             float sx = (ndc.x + 1.0f) * 0.5f * width();
@@ -1181,7 +1180,7 @@ bool Viewport3D::findNearestRoadU(const QPoint& screenPos, int roadIdx, float& o
     float bestDist = std::numeric_limits<float>::max();
     float bestU = 0.0f;
     for (size_t i = 0; i < curve.size(); ++i) {
-        glm::vec4 clip = vp * glm::vec4(-curve[i].x, curve[i].y, curve[i].z, 1.0f);
+        glm::vec4 clip = vp * glm::vec4(curve[i], 1.0f);
         if (clip.w <= 0.0f) continue;
         glm::vec3 ndc = glm::vec3(clip) / clip.w;
         float sx = (ndc.x + 1.0f) * 0.5f * width();
@@ -1221,7 +1220,7 @@ bool Viewport3D::pickSocket(
             if (!socket.enabled) continue;
 
             glm::vec3 worldPos = ix.pos + socket.localPos;
-            glm::vec4 clip = vp * glm::vec4(-worldPos.x, worldPos.y, worldPos.z, 1.0f);
+            glm::vec4 clip = vp * glm::vec4(worldPos, 1.0f);
             if (clip.w <= 0.0f) continue;
             glm::vec3 ndc = glm::vec3(clip) / clip.w;
             float sx = (ndc.x + 1.0f) * 0.5f * width();
@@ -1255,7 +1254,7 @@ bool Viewport3D::pickEndpointControlPoint(
         if (road.points.empty()) continue;
         for (int pi : {0, static_cast<int>(road.points.size()) - 1}) {
             if (pi < 0 || pi >= static_cast<int>(road.points.size())) continue;
-            glm::vec3 glPos = {-road.points[pi].pos.x, road.points[pi].pos.y, road.points[pi].pos.z};
+            glm::vec3 glPos = road.points[pi].pos;
             glm::vec4 clip = vp * glm::vec4(glPos, 1.0f);
             if (clip.w <= 0.0f) continue;
             glm::vec3 ndc = glm::vec3(clip) / clip.w;
@@ -1300,7 +1299,7 @@ std::vector<SelectedPoint> Viewport3D::pickControlPointsInRect(const QRect& rect
     for (int ri = 0; ri < static_cast<int>(m_network.roads.size()); ++ri) {
         const auto& road = m_network.roads[ri];
         for (int pi = 0; pi < static_cast<int>(road.points.size()); ++pi) {
-            glm::vec3 glPos = {-road.points[pi].pos.x, road.points[pi].pos.y, road.points[pi].pos.z};
+            glm::vec3 glPos = road.points[pi].pos;
             glm::vec4 clip = vp * glm::vec4(glPos, 1.0f);
             if (clip.w <= 0.0f) continue;
             glm::vec3 ndc = glm::vec3(clip) / clip.w;
@@ -1514,7 +1513,7 @@ bool Viewport3D::pickControlPoint(
     for (int ri = 0; ri < static_cast<int>(m_network.roads.size()); ++ri) {
         const auto& road = m_network.roads[ri];
         for (int pi = 0; pi < static_cast<int>(road.points.size()); ++pi) {
-            glm::vec3 glPos = {-road.points[pi].pos.x, road.points[pi].pos.y, road.points[pi].pos.z};
+            glm::vec3 glPos = road.points[pi].pos;
             glm::vec4 clip = vp * glm::vec4(glPos, 1.0f);
             if (clip.w <= 0.0f) continue;
 
@@ -1549,7 +1548,7 @@ bool Viewport3D::pickControlEdge(
     glm::vec2 mp = {float(screenPos.x()), float(screenPos.y())};
 
     auto project = [&](const glm::vec3& worldPos, glm::vec2& outScreen) -> bool {
-        glm::vec4 clip = vp * glm::vec4(-worldPos.x, worldPos.y, worldPos.z, 1.0f);
+        glm::vec4 clip = vp * glm::vec4(worldPos, 1.0f);
         if (clip.w <= 0.0f) return false;
         glm::vec3 ndc = glm::vec3(clip) / clip.w;
         outScreen = {
@@ -1664,7 +1663,6 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
         int hoverIntersectionIdx = -1;
         int hoverSocketIdx = -1;
         glm::vec3 worldPos = rayHitY(rayOri, rayDir, 0.0f);
-        worldPos.x = -worldPos.x;
         if (pickSocket(e->pos(), hoverIntersectionIdx, hoverSocketIdx, 24.0f)) {
             const auto& ix = m_network.intersections[hoverIntersectionIdx];
             worldPos = ix.pos + ix.sockets[hoverSocketIdx].localPos;
@@ -2243,7 +2241,7 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
                         .arg(e->pos().x()).arg(e->pos().y())
                         .arg(m_gizmoDragScreenDepth, 0, 'f', 6));
                 }
-                glm::vec3 deltaWorld = {-deltaGl.x, deltaGl.y, deltaGl.z};
+                glm::vec3 deltaWorld = deltaGl;
                 for (const auto& selPt : m_editor.sel.points) {
                     auto& pos = m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos;
                     pos += deltaWorld;
@@ -2253,11 +2251,7 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
                 appendInputDebugLog(QString("drag move type=%1 points").arg(axisName(m_gizmoDragAxis)));
                 glm::vec3 newPivotGlPos = resolveGlPos();
                 glm::vec3 deltaGl = newPivotGlPos - m_gizmoDragOrigGlPos;
-                glm::vec3 deltaWorld = {
-                    (m_gizmoDragAxis == TransformGizmo::Axis::X) ? deltaGl.x : -deltaGl.x,
-                    deltaGl.y,
-                    deltaGl.z
-                };
+                glm::vec3 deltaWorld = deltaGl;
 
                 for (const auto& origin : m_pointDragOrigins) {
                     auto& pos = m_network.roads[origin.point.roadIdx].points[origin.point.pointIdx].pos;
@@ -2306,18 +2300,14 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
                 auto [glHit, ok] = resolveScreenGlHit();
                 if (!ok) return;
                 glm::vec3 deltaGl = glHit - m_gizmoDragLastGlPos;
-                glm::vec3 deltaWorld = {-deltaGl.x, deltaGl.y, deltaGl.z};
+                glm::vec3 deltaWorld = deltaGl;
                 socket.localPos += deltaWorld;
                 m_gizmoDragLastGlPos = glHit;
             } else {
                 appendInputDebugLog(QString("drag move type=%1 socket").arg(axisName(m_gizmoDragAxis)));
                 glm::vec3 newGlPos = resolveGlPos();
                 glm::vec3 deltaGl = newGlPos - m_gizmoDragOrigGlPos;
-                glm::vec3 deltaWorld = {
-                    (m_gizmoDragAxis == TransformGizmo::Axis::X) ? deltaGl.x : -deltaGl.x,
-                    deltaGl.y,
-                    deltaGl.z
-                };
+                glm::vec3 deltaWorld = deltaGl;
                 socket.localPos = m_socketDragOrigLocalPos + deltaWorld;
             }
 
@@ -2357,7 +2347,7 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
                             .arg(e->pos().x()).arg(e->pos().y())
                             .arg(m_gizmoDragScreenDepth, 0, 'f', 6));
                     }
-                    glm::vec3 deltaWorld = {-deltaGl.x, deltaGl.y, deltaGl.z};
+                    glm::vec3 deltaWorld = deltaGl;
                     m_network.intersections[selIxIdx].pos += deltaWorld;
                     for (const auto& ep : m_ixDragEndpoints)
                         m_network.roads[ep.roadIdx].points[ep.ptIdx].pos += deltaWorld;
@@ -2365,11 +2355,7 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
                 } else {
                     appendInputDebugLog(QString("drag move type=%1 intersection").arg(axisName(m_gizmoDragAxis)));
                     glm::vec3 newGlPos = resolveGlPos();
-                    glm::vec3 newWorld = {
-                        (m_gizmoDragAxis == TransformGizmo::Axis::X) ? newGlPos.x : -newGlPos.x,
-                        newGlPos.y,
-                        newGlPos.z
-                    };
+                    glm::vec3 newWorld = newGlPos;
                     m_network.intersections[selIxIdx].pos = newWorld;
                     for (const auto& ep : m_ixDragEndpoints)
                         m_network.roads[ep.roadIdx].points[ep.ptIdx].pos = newWorld + ep.origOffset;

@@ -7,6 +7,29 @@
 
 using json = nlohmann::json;
 
+namespace {
+
+glm::vec3 flipX(const glm::vec3& v) {
+    return {-v.x, v.y, v.z};
+}
+
+void migrateFromLeftHanded(RoadNetwork& net) {
+    net.terrain.offset = flipX(net.terrain.offset);
+
+    for (auto& intersection : net.intersections) {
+        intersection.pos = flipX(intersection.pos);
+        for (auto& socket : intersection.sockets)
+            socket.localPos = flipX(socket.localPos);
+    }
+
+    for (auto& road : net.roads) {
+        for (auto& point : road.points)
+            point.pos = flipX(point.pos);
+    }
+}
+
+}
+
 static glm::vec3 readVec3(const json& j) {
     return {j[0].get<float>(), j[1].get<float>(), j[2].get<float>()};
 }
@@ -176,7 +199,8 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
     }
 
     net.clear();
-    net.version = doc.value("version", 3);
+    const int loadedVersion = doc.value("version", 3);
+    net.version = loadedVersion;
 
     if (doc.contains("terrain") && doc["terrain"].is_object()) {
         const auto& jt = doc["terrain"];
@@ -270,6 +294,10 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
         net.roads.push_back(std::move(r));
     }
 
+    if (loadedVersion < 4)
+        migrateFromLeftHanded(net);
+    net.version = 4;
+
     qDebug() << "Loaded:" << net.roads.size() << "roads,"
              << net.intersections.size() << "intersections from" << path;
     return true;
@@ -277,7 +305,7 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
 
 bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
     json doc;
-    doc["version"] = net.version;
+    doc["version"] = 4;
 
     if (net.terrain.enabled && !net.terrain.path.empty()) {
         doc["terrain"] = {

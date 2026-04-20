@@ -54,5 +54,5 @@ private:
     bool m_ready   = false;
     bool m_hasData = false;
 
-    static glm::vec3 toGL(const glm::vec3& p) { return {-p.x, p.y, p.z}; }
+    static glm::vec3 toGL(const glm::vec3& p) { return p; }
 };

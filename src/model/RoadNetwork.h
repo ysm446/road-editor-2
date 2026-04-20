@@ -31,7 +31,7 @@ struct RoadNetwork {
     std::vector<Intersection> intersections;
     std::vector<Group>        groups;
     TerrainSettings           terrain;
-    int version = 3;
+    int version = 4;
 
     void clear();
     const Road*               findRoad        (const std::string& id) const;

@@ -48,7 +48,7 @@ void IntersectionMeshGen::generate(
 
     struct BoundaryPt {
         glm::vec3 posWorld;      // world space (for arc geometry)
-        glm::vec3 posGL;         // GL space (for output mesh)
+        glm::vec3 posGL;         // rendering space (same as world in RH mode)
         glm::vec3 tangentWorld;  // unit tangent pointing AWAY from intersection
         float     angle;         // atan2 around intersection center (for sort)
         int       roadIdx;       // which road, to detect road-to-road gaps

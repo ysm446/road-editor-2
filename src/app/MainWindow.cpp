@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "BuildConfig.h"
+#include "HeightmapPanel.h"
 #include "PropertiesPanel.h"
 #include "OutlinerPanel.h"
 #include "../viewport/Viewport3D.h"
@@ -17,6 +18,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSettings>
+#include <QStatusBar>
 #include <QTimer>
 #include <QTextEdit>
 #include <utility>
@@ -45,6 +47,8 @@ MainWindow::MainWindow(QWidget* parent)
             m_outliner,  &OutlinerPanel::onSelectionChanged);
     connect(m_viewport, &Viewport3D::networkChanged,
             this,        &MainWindow::onNetworkChanged);
+    connect(m_viewport, &Viewport3D::networkChanged,
+            m_heightmap, [this] { m_heightmap->setNetwork(&m_viewport->network()); });
 
     // Wire outliner click → viewport selection highlight
     connect(m_outliner, &OutlinerPanel::roadSelected,
@@ -74,6 +78,20 @@ MainWindow::MainWindow(QWidget* parent)
             m_viewport,   &Viewport3D::addSocketToSelectedIntersection);
     connect(m_properties, &PropertiesPanel::removeSocketRequested,
             m_viewport,   &Viewport3D::removeSelectedSocket);
+    connect(m_heightmap, &HeightmapPanel::importRequested,
+            this, &MainWindow::importHeightmap);
+    connect(m_heightmap, &HeightmapPanel::clearRequested,
+            this, &MainWindow::clearHeightmap);
+    connect(m_heightmap, &HeightmapPanel::settingsChanged,
+            this, [this](const TerrainSettings& settings) {
+                QString errorMessage;
+                if (!m_viewport->updateTerrainSettings(settings, &errorMessage)) {
+                    statusBar()->showMessage(
+                        errorMessage.isEmpty() ? QStringLiteral("ハイトマップ設定の更新に失敗しました。")
+                                               : errorMessage,
+                        6000);
+                }
+            });
 
     // Auto-load sample data
     QString sample = QStringLiteral(ROAD_EDITOR_SOURCE_DIR) + "/docs/road_data_format.json";
@@ -93,6 +111,13 @@ void MainWindow::setupDocks() {
     outlinerDock->setWidget(m_outliner);
     outlinerDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     addDockWidget(Qt::LeftDockWidgetArea, outlinerDock);
+
+    auto* heightmapDock = new QDockWidget("Heightmap", this);
+    m_heightmap = new HeightmapPanel(heightmapDock);
+    heightmapDock->setWidget(m_heightmap);
+    heightmapDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    addDockWidget(Qt::LeftDockWidgetArea, heightmapDock);
+    splitDockWidget(outlinerDock, heightmapDock, Qt::Vertical);
 
     // Properties (right)
     auto* propDock = new QDockWidget("Properties", this);
@@ -242,9 +267,34 @@ void MainWindow::saveFile() {
     }
 }
 
+void MainWindow::importHeightmap() {
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        "Import Heightmap",
+        QString(),
+        "Image Files (*.png *.bmp *.jpg *.jpeg *.tif *.tiff);;All Files (*)");
+    if (path.isEmpty())
+        return;
+
+    QString errorMessage;
+    if (m_viewport->importHeightmap(path, &errorMessage)) {
+        statusBar()->showMessage(QString("Imported heightmap: %1").arg(QFileInfo(path).fileName()), 5000);
+    } else {
+        statusBar()->showMessage(errorMessage.isEmpty() ? QStringLiteral("ハイトマップの読み込みに失敗しました。")
+                                                        : errorMessage,
+                                 6000);
+    }
+}
+
+void MainWindow::clearHeightmap() {
+    m_viewport->clearHeightmap();
+    statusBar()->showMessage(QStringLiteral("ハイトマップをクリアしました。"), 4000);
+}
+
 void MainWindow::onNetworkChanged() {
     m_properties->setNetwork(&m_viewport->network());
     m_outliner->refresh(&m_viewport->network());
+    m_heightmap->setNetwork(&m_viewport->network());
 }
 
 void MainWindow::openRecentFile() {

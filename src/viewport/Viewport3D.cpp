@@ -8,6 +8,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QKeyEvent>
 #include <QMenu>
 #include <QMouseEvent>
@@ -80,6 +81,7 @@ Viewport3D::~Viewport3D() {
     m_axisGizmo.destroy(this);
     m_boxOverlay.destroy(this);
     m_roadRenderer.destroy(this);
+    m_terrainRenderer.destroy(this);
     m_transformGizmo.destroy(this);
     doneCurrent();
 }
@@ -107,12 +109,15 @@ void Viewport3D::initializeGL() {
     m_axisGizmo.init(this);
     m_boxOverlay.init(this);
     m_roadRenderer.init(this);
+    m_terrainRenderer.init(this);
     m_transformGizmo.init(this);
     m_glReady = true;
 
     if (!m_pendingPath.isEmpty()) {
-        if (Serializer::loadFromFile(m_pendingPath, m_network))
+        if (Serializer::loadFromFile(m_pendingPath, m_network)) {
+            reloadTerrain();
             m_roadRenderer.rebuild(this, m_network);
+        }
         m_pendingPath.clear();
     }
 }
@@ -127,6 +132,7 @@ void Viewport3D::paintGL() {
 
     glm::mat4 view = m_camera.viewMatrix();
     glm::mat4 vp   = m_camera.projMatrix(m_aspect) * view;
+    m_terrainRenderer.draw(this, m_roadShader, vp, m_wireframe);
     m_grid.draw(this, m_lineShader, vp);
     m_roadRenderer.draw(this, m_lineShader, m_roadShader, m_pointShader, vp);
 
@@ -375,8 +381,23 @@ void Viewport3D::setEditSubTool(EditSubTool subTool) {
 }
 
 void Viewport3D::setWireframe(bool on) {
+    m_wireframe = on;
     m_roadRenderer.setWireframe(on);
     update();
+}
+
+bool Viewport3D::reloadTerrain(QString* errorMessage) {
+    if (!m_glReady)
+        return false;
+
+    if (!m_network.terrain.enabled || m_network.terrain.path.empty()) {
+        m_terrainRenderer.clear(this);
+        if (errorMessage)
+            errorMessage->clear();
+        return true;
+    }
+
+    return m_terrainRenderer.loadFromSettings(this, m_network.terrain, errorMessage);
 }
 
 void Viewport3D::applyRoadProperties(int roadIdx, RoadProperties p) {
@@ -582,6 +603,7 @@ void Viewport3D::loadNetwork(const QString& path) {
     makeCurrent();
     if (Serializer::loadFromFile(path, m_network)) {
         m_editor.sel.clear();
+        reloadTerrain();
         m_roadRenderer.rebuild(this, m_network);
         syncSelectionVisuals();
     }
@@ -589,6 +611,91 @@ void Viewport3D::loadNetwork(const QString& path) {
     emit networkChanged();
     emit selectionChanged(-1);
     update();
+}
+
+TerrainSettings Viewport3D::defaultTerrainSettingsForNetwork(const QString& path) const {
+    TerrainSettings settings;
+    settings.enabled = true;
+    settings.path = QDir::toNativeSeparators(QFileInfo(path).absoluteFilePath()).toStdString();
+    settings.offset = { 0.0f, 0.0f, 0.0f };
+
+    if (m_network.terrain.enabled && !m_network.terrain.path.empty()) {
+        settings.width = m_network.terrain.width;
+        settings.depth = m_network.terrain.depth;
+        settings.height = m_network.terrain.height;
+        settings.offset = m_network.terrain.offset;
+        settings.meshCellsX = m_network.terrain.meshCellsX;
+        settings.meshCellsZ = m_network.terrain.meshCellsZ;
+        return settings;
+    }
+
+    return settings;
+}
+
+bool Viewport3D::importHeightmap(const QString& path, QString* errorMessage) {
+    if (path.isEmpty()) {
+        if (errorMessage)
+            *errorMessage = QStringLiteral("ハイトマップのパスが空です。");
+        return false;
+    }
+
+    m_network.terrain = defaultTerrainSettingsForNetwork(path);
+
+    if (!m_glReady) {
+        if (errorMessage)
+            errorMessage->clear();
+        update();
+        emit networkChanged();
+        return true;
+    }
+
+    makeCurrent();
+    const bool ok = reloadTerrain(errorMessage);
+    doneCurrent();
+    if (!ok)
+        return false;
+
+    emit networkChanged();
+    update();
+    return true;
+}
+
+void Viewport3D::clearHeightmap() {
+    m_network.terrain.clear();
+    if (m_glReady) {
+        makeCurrent();
+        m_terrainRenderer.clear(this);
+        doneCurrent();
+    }
+    emit networkChanged();
+    update();
+}
+
+bool Viewport3D::updateTerrainSettings(const TerrainSettings& settings, QString* errorMessage) {
+    if (!settings.enabled || settings.path.empty()) {
+        if (errorMessage)
+            errorMessage->clear();
+        return false;
+    }
+
+    m_network.terrain = settings;
+    if (!m_glReady) {
+        if (errorMessage)
+            errorMessage->clear();
+        emit networkChanged();
+        update();
+        return true;
+    }
+
+    makeCurrent();
+    const bool ok = reloadTerrain(errorMessage);
+    doneCurrent();
+    if (!ok)
+        return false;
+
+    emit networkChanged();
+    update();
+    return true;
 }
 
 glm::vec3 Viewport3D::screenToRay(const QPoint& p) const {

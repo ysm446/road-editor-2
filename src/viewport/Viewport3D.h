@@ -16,6 +16,7 @@
 #include "../renderer/Shader.h"
 #include "../model/RoadNetwork.h"
 #include "../scene/RoadRenderer.h"
+#include "../scene/TerrainRenderer.h"
 #include "../scene/TransformGizmo.h"
 #include "../editor/EditorState.h"
 #include "../app/PropertiesPanel.h"
@@ -27,6 +28,9 @@ public:
     ~Viewport3D() override;
 
     void loadNetwork(const QString& path);
+    bool importHeightmap(const QString& path, QString* errorMessage = nullptr);
+    void clearHeightmap();
+    bool updateTerrainSettings(const TerrainSettings& settings, QString* errorMessage = nullptr);
 
     const RoadNetwork& network() const { return m_network; }
 
@@ -110,6 +114,8 @@ private:
     void beginPointDrag(const glm::vec3& pivotGlPos);
     int selectedRoadForPanels() const;
     void clearCreateToolState();
+    bool reloadTerrain(QString* errorMessage = nullptr);
+    TerrainSettings defaultTerrainSettingsForNetwork(const QString& path) const;
 
     Camera         m_camera;
     Grid           m_grid;
@@ -125,9 +131,11 @@ private:
     bool           m_leftButtonDown = false;
     float          m_aspect    = 1.0f;
     bool           m_glReady   = false;
+    bool           m_wireframe = false;
 
     RoadNetwork    m_network;
     RoadRenderer   m_roadRenderer;
+    TerrainRenderer m_terrainRenderer;
     TransformGizmo m_transformGizmo;
     EditorState    m_editor;
     QString        m_pendingPath;

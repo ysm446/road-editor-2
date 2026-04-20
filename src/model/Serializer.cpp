@@ -1,7 +1,9 @@
 #include "Serializer.h"
 #include <nlohmann/json.hpp>
-#include <fstream>
+#include <QDir>
 #include <QDebug>
+#include <QFile>
+#include <QFileInfo>
 
 using json = nlohmann::json;
 
@@ -11,6 +13,36 @@ static glm::vec3 readVec3(const json& j) {
 
 static json writeVec3(const glm::vec3& v) {
     return json::array({v.x, v.y, v.z});
+}
+
+static QString resolvePathFromProject(const QString& projectPath, const QString& storedPath) {
+    if (storedPath.isEmpty())
+        return {};
+
+    const QFileInfo storedInfo(storedPath);
+    if (storedInfo.isAbsolute())
+        return QDir::toNativeSeparators(QDir::cleanPath(storedInfo.absoluteFilePath()));
+
+    const QFileInfo projectInfo(projectPath);
+    const QDir baseDir(projectInfo.absolutePath());
+    return QDir::toNativeSeparators(
+        QDir::cleanPath(baseDir.absoluteFilePath(QDir::fromNativeSeparators(storedPath))));
+}
+
+static QString makePathRelativeToProject(const QString& projectPath, const QString& targetPath) {
+    if (targetPath.isEmpty())
+        return {};
+
+    const QFileInfo targetInfo(targetPath);
+    const QString normalizedTarget =
+        QDir::cleanPath(targetInfo.isAbsolute() ? targetInfo.absoluteFilePath() : targetPath);
+
+    if (projectPath.isEmpty())
+        return normalizedTarget;
+
+    const QFileInfo projectInfo(projectPath);
+    const QDir baseDir(projectInfo.absolutePath());
+    return QDir::cleanPath(baseDir.relativeFilePath(normalizedTarget));
 }
 
 static RoadEndpointLink readLink(const json& j) {
@@ -127,14 +159,17 @@ static std::vector<IntersectionSocket> defaultSockets(float entryDist) {
 }
 
 bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
-    std::ifstream f(path.toStdString());
-    if (!f.is_open()) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qWarning() << "Cannot open:" << path;
         return false;
     }
 
     json doc;
-    try { f >> doc; }
+    try {
+        const QByteArray bytes = file.readAll();
+        doc = json::parse(bytes.constData(), bytes.constData() + bytes.size());
+    }
     catch (const json::exception& e) {
         qWarning() << "JSON parse error:" << e.what();
         return false;
@@ -142,6 +177,23 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
 
     net.clear();
     net.version = doc.value("version", 3);
+
+    if (doc.contains("terrain") && doc["terrain"].is_object()) {
+        const auto& jt = doc["terrain"];
+        net.terrain.enabled = jt.value("enabled", true);
+        net.terrain.path =
+            resolvePathFromProject(path, QString::fromStdString(jt.value("path", std::string())))
+                .toStdString();
+        net.terrain.width = jt.value("width", 1024.0f);
+        net.terrain.depth = jt.value("depth", 1024.0f);
+        net.terrain.height = jt.value("height", 128.0f);
+        if (jt.contains("offset"))
+            net.terrain.offset = readVec3(jt["offset"]);
+        net.terrain.meshCellsX = jt.value("meshCellsX", 0);
+        net.terrain.meshCellsZ = jt.value("meshCellsZ", 0);
+        if (net.terrain.path.empty())
+            net.terrain.enabled = false;
+    }
 
     for (const auto& jg : doc.value("groups", json::array())) {
         Group g;
@@ -224,6 +276,19 @@ bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
     json doc;
     doc["version"] = net.version;
 
+    if (net.terrain.enabled && !net.terrain.path.empty()) {
+        doc["terrain"] = {
+            {"enabled", net.terrain.enabled},
+            {"path", makePathRelativeToProject(path, QString::fromStdString(net.terrain.path)).toStdString()},
+            {"width", net.terrain.width},
+            {"depth", net.terrain.depth},
+            {"height", net.terrain.height},
+            {"offset", writeVec3(net.terrain.offset)},
+            {"meshCellsX", net.terrain.meshCellsX},
+            {"meshCellsZ", net.terrain.meshCellsZ}
+        };
+    }
+
     json jGroups = json::array();
     for (const auto& g : net.groups) {
         jGroups.push_back({{"id", g.id}, {"name", g.name},
@@ -290,11 +355,15 @@ bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
     }
     doc["roads"] = jRoads;
 
-    std::ofstream f(path.toStdString());
-    if (!f.is_open()) {
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
         qWarning() << "Cannot write:" << path;
         return false;
     }
-    f << doc.dump(2);
+    const QByteArray bytes = QByteArray::fromStdString(doc.dump(2));
+    if (file.write(bytes) != bytes.size()) {
+        qWarning() << "Cannot fully write:" << path;
+        return false;
+    }
     return true;
 }

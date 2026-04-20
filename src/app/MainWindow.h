@@ -7,6 +7,7 @@
 class Viewport3D;
 class PropertiesPanel;
 class OutlinerPanel;
+class HeightmapPanel;
 class QAction;
 class QMenu;
 
@@ -20,6 +21,8 @@ private slots:
     void saveFile();
     void onNetworkChanged();
     void openRecentFile();
+    void importHeightmap();
+    void clearHeightmap();
 
 private:
     static constexpr int kMaxRecentFiles = 8;
@@ -27,6 +30,7 @@ private:
     Viewport3D*      m_viewport    = nullptr;
     PropertiesPanel* m_properties  = nullptr;
     OutlinerPanel*   m_outliner    = nullptr;
+    HeightmapPanel*  m_heightmap   = nullptr;
 
     QAction* m_selectModeAct  = nullptr;
     QAction* m_editModeAct    = nullptr;

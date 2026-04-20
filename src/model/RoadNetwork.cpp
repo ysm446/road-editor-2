@@ -5,6 +5,7 @@ void RoadNetwork::clear() {
     roads.clear();
     intersections.clear();
     groups.clear();
+    terrain.clear();
 }
 
 const Road* RoadNetwork::findRoad(const std::string& id) const {

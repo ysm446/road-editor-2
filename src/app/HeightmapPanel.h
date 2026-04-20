@@ -43,8 +43,7 @@ private:
     QPushButton*    m_clearButton = nullptr;
     QPushButton*    m_importTextureButton = nullptr;
     QPushButton*    m_clearTextureButton = nullptr;
-    QDoubleSpinBox* m_widthSpin = nullptr;
-    QDoubleSpinBox* m_depthSpin = nullptr;
+    QDoubleSpinBox* m_sizeSpin = nullptr;
     QDoubleSpinBox* m_heightSpin = nullptr;
     QDoubleSpinBox* m_offsetXSpin = nullptr;
     QDoubleSpinBox* m_offsetYSpin = nullptr;

@@ -53,57 +53,68 @@ HeightmapPanel::HeightmapPanel(QWidget* parent)
     auto* form = new QFormLayout(settingsGroup);
     form->setLabelAlignment(Qt::AlignRight);
 
-    m_widthSpin = new QDoubleSpinBox(this);
-    m_widthSpin->setRange(1.0, 100000.0);
-    m_widthSpin->setDecimals(2);
-    m_widthSpin->setSingleStep(10.0);
-    m_widthSpin->setSuffix(" m");
-    form->addRow("Width:", m_widthSpin);
-
-    m_depthSpin = new QDoubleSpinBox(this);
-    m_depthSpin->setRange(1.0, 100000.0);
-    m_depthSpin->setDecimals(2);
-    m_depthSpin->setSingleStep(10.0);
-    m_depthSpin->setSuffix(" m");
-    form->addRow("Depth:", m_depthSpin);
+    m_sizeSpin = new QDoubleSpinBox(this);
+    m_sizeSpin->setRange(1.0, 100000.0);
+    m_sizeSpin->setDecimals(2);
+    m_sizeSpin->setSingleStep(10.0);
+    m_sizeSpin->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    m_sizeSpin->setSuffix(" m");
+    form->addRow("Size:", m_sizeSpin);
 
     m_heightSpin = new QDoubleSpinBox(this);
     m_heightSpin->setRange(0.1, 100000.0);
     m_heightSpin->setDecimals(2);
     m_heightSpin->setSingleStep(10.0);
+    m_heightSpin->setButtonSymbols(QAbstractSpinBox::NoButtons);
     m_heightSpin->setSuffix(" m");
-    form->addRow("Height:", m_heightSpin);
+    form->addRow("Height Scale:", m_heightSpin);
 
     m_offsetXSpin = new QDoubleSpinBox(this);
     m_offsetXSpin->setRange(-100000.0, 100000.0);
     m_offsetXSpin->setDecimals(2);
     m_offsetXSpin->setSingleStep(10.0);
+    m_offsetXSpin->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    m_offsetXSpin->setPrefix("X ");
     m_offsetXSpin->setSuffix(" m");
-    form->addRow("Offset X:", m_offsetXSpin);
 
     m_offsetYSpin = new QDoubleSpinBox(this);
     m_offsetYSpin->setRange(-100000.0, 100000.0);
     m_offsetYSpin->setDecimals(2);
     m_offsetYSpin->setSingleStep(10.0);
+    m_offsetYSpin->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    m_offsetYSpin->setPrefix("Y ");
     m_offsetYSpin->setSuffix(" m");
-    form->addRow("Offset Y:", m_offsetYSpin);
 
     m_offsetZSpin = new QDoubleSpinBox(this);
     m_offsetZSpin->setRange(-100000.0, 100000.0);
     m_offsetZSpin->setDecimals(2);
     m_offsetZSpin->setSingleStep(10.0);
+    m_offsetZSpin->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    m_offsetZSpin->setPrefix("Z ");
     m_offsetZSpin->setSuffix(" m");
-    form->addRow("Offset Z:", m_offsetZSpin);
+    auto* offsetRow = new QHBoxLayout;
+    offsetRow->setContentsMargins(0, 0, 0, 0);
+    offsetRow->addWidget(m_offsetXSpin);
+    offsetRow->addWidget(m_offsetYSpin);
+    offsetRow->addWidget(m_offsetZSpin);
+    form->addRow("Offset:", offsetRow);
 
     m_meshCellsXSpin = new QSpinBox(this);
     m_meshCellsXSpin->setRange(0, 8192);
+    m_meshCellsXSpin->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    m_meshCellsXSpin->setPrefix("X ");
     m_meshCellsXSpin->setSpecialValueText("Auto");
-    form->addRow("Detail X:", m_meshCellsXSpin);
 
     m_meshCellsZSpin = new QSpinBox(this);
     m_meshCellsZSpin->setRange(0, 8192);
+    m_meshCellsZSpin->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    m_meshCellsZSpin->setPrefix("Z ");
     m_meshCellsZSpin->setSpecialValueText("Auto");
-    form->addRow("Detail Z:", m_meshCellsZSpin);
+    auto* detailRow = new QHBoxLayout;
+    detailRow->setContentsMargins(0, 0, 0, 0);
+    detailRow->addWidget(m_meshCellsXSpin);
+    detailRow->addWidget(m_meshCellsZSpin);
+    form->addRow("Detail:", detailRow);
 
     root->addWidget(settingsGroup);
     root->addStretch(1);
@@ -112,8 +123,7 @@ HeightmapPanel::HeightmapPanel(QWidget* parent)
     connect(m_clearButton, &QPushButton::clicked, this, &HeightmapPanel::requestClear);
     connect(m_importTextureButton, &QPushButton::clicked, this, &HeightmapPanel::requestImportTexture);
     connect(m_clearTextureButton, &QPushButton::clicked, this, &HeightmapPanel::requestClearTexture);
-    connect(m_widthSpin, &QDoubleSpinBox::valueChanged, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
-    connect(m_depthSpin, &QDoubleSpinBox::valueChanged, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
+    connect(m_sizeSpin, &QDoubleSpinBox::valueChanged, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
     connect(m_heightSpin, &QDoubleSpinBox::valueChanged, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
     connect(m_offsetXSpin, &QDoubleSpinBox::valueChanged, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
     connect(m_offsetYSpin, &QDoubleSpinBox::valueChanged, this, QOverload<>::of(&HeightmapPanel::emitSettingsChanged));
@@ -134,8 +144,7 @@ void HeightmapPanel::setNetwork(const RoadNetwork* net) {
 
     m_updatingUi = true;
     {
-        const QSignalBlocker blockWidth(m_widthSpin);
-        const QSignalBlocker blockDepth(m_depthSpin);
+        const QSignalBlocker blockSize(m_sizeSpin);
         const QSignalBlocker blockHeight(m_heightSpin);
         const QSignalBlocker blockOffsetX(m_offsetXSpin);
         const QSignalBlocker blockOffsetY(m_offsetYSpin);
@@ -158,8 +167,7 @@ void HeightmapPanel::setNetwork(const RoadNetwork* net) {
             m_texturePathLabel->setToolTip(
                 terrain.texturePath.empty() ? QString()
                                             : QDir::toNativeSeparators(QString::fromStdString(terrain.texturePath)));
-            m_widthSpin->setValue(terrain.width);
-            m_depthSpin->setValue(terrain.depth);
+            m_sizeSpin->setValue(terrain.width);
             m_heightSpin->setValue(terrain.height);
             m_offsetXSpin->setValue(terrain.offset.x);
             m_offsetYSpin->setValue(terrain.offset.y);
@@ -171,8 +179,7 @@ void HeightmapPanel::setNetwork(const RoadNetwork* net) {
             m_pathLabel->setToolTip({});
             m_texturePathLabel->setText("No texture loaded");
             m_texturePathLabel->setToolTip({});
-            m_widthSpin->setValue(1024.0);
-            m_depthSpin->setValue(1024.0);
+            m_sizeSpin->setValue(1024.0);
             m_heightSpin->setValue(128.0);
             m_offsetXSpin->setValue(0.0);
             m_offsetYSpin->setValue(0.0);
@@ -193,8 +200,8 @@ void HeightmapPanel::emitSettingsChanged() {
         return;
 
     TerrainSettings settings = m_net->terrain;
-    settings.width = static_cast<float>(m_widthSpin->value());
-    settings.depth = static_cast<float>(m_depthSpin->value());
+    settings.width = static_cast<float>(m_sizeSpin->value());
+    settings.depth = static_cast<float>(m_sizeSpin->value());
     settings.height = static_cast<float>(m_heightSpin->value());
     settings.offset.x = static_cast<float>(m_offsetXSpin->value());
     settings.offset.y = static_cast<float>(m_offsetYSpin->value());
@@ -224,8 +231,7 @@ void HeightmapPanel::updateUiEnabledState(bool hasTerrain) {
     m_clearButton->setEnabled(hasTerrain);
     m_importTextureButton->setEnabled(hasTerrain);
     m_clearTextureButton->setEnabled(hasTerrain);
-    m_widthSpin->setEnabled(hasTerrain);
-    m_depthSpin->setEnabled(hasTerrain);
+    m_sizeSpin->setEnabled(hasTerrain);
     m_heightSpin->setEnabled(hasTerrain);
     m_offsetXSpin->setEnabled(hasTerrain);
     m_offsetYSpin->setEnabled(hasTerrain);

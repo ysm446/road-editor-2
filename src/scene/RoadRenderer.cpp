@@ -6,8 +6,6 @@
 #include "../generator/LaneSectionGen.h"
 #include "../generator/IntersectionMeshGen.h"
 #include <set>
-#include <cmath>
-#include <glm/gtc/matrix_transform.hpp>
 
 namespace {
 glm::vec3 previewGradeColor(float value, float threshold) {
@@ -55,7 +53,6 @@ void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
     m_allPoints.init(f);
     m_allCtrlLines.init(f);
     m_selBatch.init(f);
-    m_selRoadOutline.init(f);
     m_selRoad.init(f);
     m_selCtrlLines.init(f);
     m_selSockets.init(f);
@@ -145,14 +142,6 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
             for (size_t i = 1; i < curve.size(); ++i)
                 arc.push_back(arc.back() + glm::length(curve[i].pos - curve[i - 1].pos));
             const float total = std::max(arc.back(), 1e-6f);
-
-            auto tangentAt = [&](int idx) -> glm::vec3 {
-                glm::vec3 t;
-                if (idx == 0) t = curve[1].pos - curve[0].pos;
-                else if (idx == (int)curve.size() - 1) t = curve[idx].pos - curve[idx - 1].pos;
-                else t = curve[idx + 1].pos - curve[idx - 1].pos;
-                return glm::length(t) > 1e-6f ? glm::normalize(t) : glm::vec3(0, 0, 1);
-            };
 
             auto pointFor = [&](int idx, float lateral) -> glm::vec3 {
                 if (idx < 0 || idx >= (int)frames.size())
@@ -273,7 +262,6 @@ void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
     if (!m_ready) return;
 
     const glm::vec3 kSelPt   = {1.0f, 0.55f, 0.0f};
-    const glm::vec3 kSelRoadOutline = {0.02f, 0.08f, 0.12f};
     const glm::vec3 kSelRoad = {0.2f, 0.9f, 1.0f};
     const glm::vec3 kSelCtrlLine = {0.75f, 0.75f, 0.75f};
     const glm::vec3 kSelSocket = {1.0f, 0.85f, 0.15f};
@@ -292,7 +280,6 @@ void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
         if (pt.roadIdx >= 0)
             selectedRoads.insert(pt.roadIdx);
 
-    m_selRoadOutline.begin();
     m_selRoad.begin();
     m_selCtrlLines.begin();
     for (int roadIdx : selectedRoads) {
@@ -306,13 +293,10 @@ void RoadRenderer::updateSelection(QOpenGLFunctions_4_1_Core* f,
             road.points, road.segmentLength, road.equalMidpoint);
         auto curve = VerticalCurveGen::applyDetailed(road, baseCurve, road.segmentLength);
         for (size_t i = 0; i + 1 < curve.size(); ++i) {
-            m_selRoadOutline.addLine(toGL(curve[i].pos),
-                                     toGL(curve[i + 1].pos), kSelRoadOutline);
             m_selRoad.addLine(toGL(curve[i].pos),
                               toGL(curve[i + 1].pos), kSelRoad);
         }
     }
-    m_selRoadOutline.upload(f);
     m_selRoad.upload(f);
     m_selCtrlLines.upload(f);
 
@@ -415,7 +399,6 @@ void RoadRenderer::destroy(QOpenGLFunctions_4_1_Core* f) {
     m_allPoints.destroy(f);
     m_allCtrlLines.destroy(f);
     m_selBatch.destroy(f);
-    m_selRoadOutline.destroy(f);
     m_selRoad.destroy(f);
     m_selCtrlLines.destroy(f);
     m_selSockets.destroy(f);

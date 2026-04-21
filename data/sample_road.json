@@ -1,0 +1,1387 @@
+{
+  "groups": [
+    {
+      "id": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "locked": false,
+      "name": "Default",
+      "visible": true
+    }
+  ],
+  "intersections": [
+    {
+      "entryDist": 8.0,
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "39d56a9d-0002-4c6c-9df4-68fbe08275c3",
+      "name": "Intersection 0",
+      "pos": [
+        -29.552400588989258,
+        11.64767837524414,
+        49.41620635986328
+      ],
+      "sockets": [
+        {
+          "enabled": true,
+          "id": "s0",
+          "localPos": [
+            -31.252357482910156,
+            -0.99530029296875,
+            2.8341445922851563
+          ],
+          "name": "East",
+          "yaw": 0.0
+        },
+        {
+          "enabled": true,
+          "id": "s1",
+          "localPos": [
+            23.026260375976563,
+            3.595585823059082,
+            -7.892986297607422
+          ],
+          "name": "West",
+          "yaw": 3.141592502593994
+        },
+        {
+          "enabled": true,
+          "id": "s2",
+          "localPos": [
+            15.574304580688477,
+            -2.9386558532714844,
+            21.130767822265625
+          ],
+          "name": "North",
+          "yaw": 1.570796251296997
+        },
+        {
+          "enabled": true,
+          "id": "s3",
+          "localPos": [
+            -2.4692745208740234,
+            -0.6757593154907227,
+            -21.444887161254883
+          ],
+          "name": "South",
+          "yaw": -1.570796251296997
+        }
+      ],
+      "type": "intersection"
+    },
+    {
+      "entryDist": 8.0,
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "70bbeeca-b402-4031-b07e-694092f07e6c",
+      "name": "Intersection 1",
+      "pos": [
+        -217.52288818359375,
+        8.338661193847656,
+        -150.649169921875
+      ],
+      "sockets": [
+        {
+          "enabled": true,
+          "id": "s0",
+          "localPos": [
+            -12.0,
+            0.0,
+            0.0
+          ],
+          "name": "East",
+          "yaw": 0.0
+        },
+        {
+          "enabled": true,
+          "id": "s1",
+          "localPos": [
+            12.0,
+            0.0,
+            0.0
+          ],
+          "name": "West",
+          "yaw": 3.141592502593994
+        },
+        {
+          "enabled": true,
+          "id": "s2",
+          "localPos": [
+            -0.0,
+            0.0,
+            12.0
+          ],
+          "name": "North",
+          "yaw": 1.570796251296997
+        },
+        {
+          "enabled": true,
+          "id": "s3",
+          "localPos": [
+            -0.0,
+            0.0,
+            -12.0
+          ],
+          "name": "South",
+          "yaw": -1.570796251296997
+        }
+      ],
+      "type": "intersection"
+    },
+    {
+      "entryDist": 8.0,
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "e8a20037-05dd-4c95-942b-0c297c3f7c21",
+      "name": "Intersection 2",
+      "pos": [
+        252.91448974609375,
+        5.333333492279053,
+        114.75997924804688
+      ],
+      "sockets": [
+        {
+          "enabled": true,
+          "id": "s0",
+          "localPos": [
+            -12.0,
+            0.0,
+            0.0
+          ],
+          "name": "East",
+          "yaw": 0.0
+        },
+        {
+          "enabled": true,
+          "id": "s1",
+          "localPos": [
+            12.0,
+            0.0,
+            0.0
+          ],
+          "name": "West",
+          "yaw": 3.141592502593994
+        },
+        {
+          "enabled": true,
+          "id": "s2",
+          "localPos": [
+            -0.0,
+            0.0,
+            12.0
+          ],
+          "name": "North",
+          "yaw": 1.570796251296997
+        },
+        {
+          "enabled": true,
+          "id": "s3",
+          "localPos": [
+            -0.0,
+            0.0,
+            -12.0
+          ],
+          "name": "South",
+          "yaw": -1.570796251296997
+        }
+      ],
+      "type": "intersection"
+    },
+    {
+      "entryDist": 8.0,
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "fbee295d-7d69-4efb-ad9a-208d3573e98f",
+      "name": "Intersection 3",
+      "pos": [
+        148.93209838867188,
+        14.437705993652344,
+        -43.45580291748047
+      ],
+      "sockets": [
+        {
+          "enabled": true,
+          "id": "s0",
+          "localPos": [
+            -12.0,
+            0.0,
+            0.0
+          ],
+          "name": "East",
+          "yaw": 0.0
+        },
+        {
+          "enabled": true,
+          "id": "s1",
+          "localPos": [
+            12.0,
+            0.0,
+            0.0
+          ],
+          "name": "West",
+          "yaw": 3.141592502593994
+        },
+        {
+          "enabled": true,
+          "id": "s2",
+          "localPos": [
+            -0.0,
+            0.0,
+            12.0
+          ],
+          "name": "North",
+          "yaw": 1.570796251296997
+        },
+        {
+          "enabled": true,
+          "id": "s3",
+          "localPos": [
+            -0.0,
+            0.0,
+            -12.0
+          ],
+          "name": "South",
+          "yaw": -1.570796251296997
+        }
+      ],
+      "type": "intersection"
+    },
+    {
+      "entryDist": 8.0,
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "2695d6eb-455d-49e9-be93-1425f74f8ff6",
+      "name": "Intersection 4",
+      "pos": [
+        497.33294677734375,
+        4.0,
+        -49.24464416503906
+      ],
+      "sockets": [
+        {
+          "enabled": true,
+          "id": "s0",
+          "localPos": [
+            -12.0,
+            0.0,
+            0.0
+          ],
+          "name": "East",
+          "yaw": 0.0
+        },
+        {
+          "enabled": true,
+          "id": "s1",
+          "localPos": [
+            12.0,
+            0.0,
+            0.0
+          ],
+          "name": "West",
+          "yaw": 3.141592502593994
+        },
+        {
+          "enabled": true,
+          "id": "s2",
+          "localPos": [
+            -0.0,
+            0.0,
+            12.0
+          ],
+          "name": "North",
+          "yaw": 1.570796251296997
+        },
+        {
+          "enabled": true,
+          "id": "s3",
+          "localPos": [
+            -0.0,
+            0.0,
+            -12.0
+          ],
+          "name": "South",
+          "yaw": -1.570796251296997
+        }
+      ],
+      "type": "intersection"
+    },
+    {
+      "entryDist": 8.0,
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "75d20551-0fdd-4baa-8236-01efe2deaa96",
+      "name": "Intersection 5",
+      "pos": [
+        258.8384704589844,
+        11.369275093078613,
+        -52.798370361328125
+      ],
+      "sockets": [
+        {
+          "enabled": true,
+          "id": "s0",
+          "localPos": [
+            -12.0,
+            0.0,
+            0.0
+          ],
+          "name": "East",
+          "yaw": 0.0
+        },
+        {
+          "enabled": true,
+          "id": "s1",
+          "localPos": [
+            12.0,
+            0.0,
+            0.0
+          ],
+          "name": "West",
+          "yaw": 3.141592502593994
+        },
+        {
+          "enabled": true,
+          "id": "s2",
+          "localPos": [
+            -0.0,
+            0.0,
+            12.0
+          ],
+          "name": "North",
+          "yaw": 1.570796251296997
+        },
+        {
+          "enabled": true,
+          "id": "s3",
+          "localPos": [
+            -0.0,
+            0.0,
+            -12.0
+          ],
+          "name": "South",
+          "yaw": -1.570796251296997
+        }
+      ],
+      "type": "intersection"
+    },
+    {
+      "entryDist": 8.0,
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "d736c38b-9d45-44e8-8ddd-c21befac8ced",
+      "name": "Intersection 6",
+      "pos": [
+        209.6475830078125,
+        9.602109909057617,
+        6.7386932373046875
+      ],
+      "sockets": [
+        {
+          "enabled": true,
+          "id": "s0",
+          "localPos": [
+            -12.0,
+            0.0,
+            0.0
+          ],
+          "name": "East",
+          "yaw": 0.0
+        },
+        {
+          "enabled": true,
+          "id": "s1",
+          "localPos": [
+            12.0,
+            0.0,
+            0.0
+          ],
+          "name": "West",
+          "yaw": 3.141592502593994
+        },
+        {
+          "enabled": true,
+          "id": "s2",
+          "localPos": [
+            -0.0,
+            0.0,
+            12.0
+          ],
+          "name": "North",
+          "yaw": 1.570796251296997
+        },
+        {
+          "enabled": true,
+          "id": "s3",
+          "localPos": [
+            -0.0,
+            0.0,
+            -12.0
+          ],
+          "name": "South",
+          "yaw": -1.570796251296997
+        }
+      ],
+      "type": "intersection"
+    },
+    {
+      "entryDist": 8.0,
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "bf3b79ff-e1eb-4971-a574-b1e6bd2a4fbf",
+      "name": "Intersection 7",
+      "pos": [
+        210.52145385742188,
+        13.411765098571777,
+        -90.41877746582031
+      ],
+      "sockets": [
+        {
+          "enabled": true,
+          "id": "s0",
+          "localPos": [
+            -12.0,
+            0.0,
+            0.0
+          ],
+          "name": "East",
+          "yaw": 0.0
+        },
+        {
+          "enabled": true,
+          "id": "s1",
+          "localPos": [
+            12.0,
+            0.0,
+            0.0
+          ],
+          "name": "West",
+          "yaw": 3.141592502593994
+        },
+        {
+          "enabled": true,
+          "id": "s2",
+          "localPos": [
+            -0.0,
+            0.0,
+            12.0
+          ],
+          "name": "North",
+          "yaw": 1.570796251296997
+        },
+        {
+          "enabled": true,
+          "id": "s3",
+          "localPos": [
+            -0.0,
+            0.0,
+            -12.0
+          ],
+          "name": "South",
+          "yaw": -1.570796251296997
+        }
+      ],
+      "type": "intersection"
+    }
+  ],
+  "roads": [
+    {
+      "active": 1,
+      "bankAngle": [],
+      "closed": false,
+      "defaultFriction": 0.15000000596046448,
+      "defaultTargetSpeed": 40.0,
+      "defaultWidthLaneCenter": 0.0,
+      "defaultWidthLaneLeft1": 4.0,
+      "defaultWidthLaneLeft2": 3.5,
+      "defaultWidthLaneRight1": 4.0,
+      "defaultWidthLaneRight2": 3.5,
+      "endIntersectionId": "39d56a9d-0002-4c6c-9df4-68fbe08275c3",
+      "endLink": {
+        "intersectionId": "39d56a9d-0002-4c6c-9df4-68fbe08275c3",
+        "socketId": "s2"
+      },
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "6ededca1-0975-4efd-ab03-3e2cf50c1e02",
+      "laneSections": [
+        {
+          "offsetCenter": 0.0,
+          "u": 0.8287003636360168,
+          "useLaneCenter": false,
+          "useLaneLeft1": true,
+          "useLaneLeft2": false,
+          "useLaneRight1": true,
+          "useLaneRight2": false,
+          "widthLaneCenter": 0.0,
+          "widthLaneLeft1": 4.0,
+          "widthLaneLeft2": 3.5,
+          "widthLaneRight1": 4.0,
+          "widthLaneRight2": 3.5
+        },
+        {
+          "offsetCenter": 0.0,
+          "u": 0.919700026512146,
+          "useLaneCenter": false,
+          "useLaneLeft1": true,
+          "useLaneLeft2": true,
+          "useLaneRight1": true,
+          "useLaneRight2": false,
+          "widthLaneCenter": 0.10000000149011612,
+          "widthLaneLeft1": 4.0,
+          "widthLaneLeft2": 3.5,
+          "widthLaneRight1": 4.0,
+          "widthLaneRight2": 3.5
+        }
+      ],
+      "name": "Road 0",
+      "point": [
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            252.91448974609375,
+            71.83991241455078,
+            114.75997924804688
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            210.7987060546875,
+            73.02772521972656,
+            124.8464126586914
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            173.42263793945313,
+            72.6161880493164,
+            138.661376953125
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            151.06167602539063,
+            74.11836242675781,
+            142.42164611816406
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            117.50149536132813,
+            78.78324890136719,
+            139.42431640625
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            80.29348754882813,
+            84.20993041992188,
+            161.6175994873047
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            43.554847717285156,
+            88.12393188476563,
+            139.35626220703125
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            10.947089195251465,
+            90.89852142333984,
+            106.53223419189453
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            -13.978096008300781,
+            92.23529815673828,
+            70.5469741821289
+          ],
+          "useCurvatureRadius": 0
+        }
+      ],
+      "roadType": 0,
+      "startIntersectionId": "",
+      "startLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "useLaneCenter": false,
+      "useLaneLeft1": true,
+      "useLaneLeft2": false,
+      "useLaneRight1": true,
+      "useLaneRight2": false,
+      "verticalCurve": []
+    },
+    {
+      "active": 1,
+      "bankAngle": [],
+      "closed": false,
+      "defaultFriction": 0.15000000596046448,
+      "defaultTargetSpeed": 40.0,
+      "defaultWidthLaneCenter": 0.0,
+      "defaultWidthLaneLeft1": 4.0,
+      "defaultWidthLaneLeft2": 3.5,
+      "defaultWidthLaneRight1": 4.0,
+      "defaultWidthLaneRight2": 3.5,
+      "endIntersectionId": "",
+      "endLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "f21c941b-3ef7-4fe3-abcf-fb144e24a1f7",
+      "laneSections": [
+        {
+          "offsetCenter": 0.0,
+          "u": 0.3968000113964081,
+          "useLaneCenter": false,
+          "useLaneLeft1": true,
+          "useLaneLeft2": false,
+          "useLaneRight1": true,
+          "useLaneRight2": false,
+          "widthLaneCenter": 0.10000000149011612,
+          "widthLaneLeft1": 4.0,
+          "widthLaneLeft2": 3.5,
+          "widthLaneRight1": 4.0,
+          "widthLaneRight2": 3.5
+        }
+      ],
+      "name": "Road 1",
+      "point": [
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            67.51407623291016,
+            54.48772048950195,
+            282.1768798828125
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            -37.262451171875,
+            83.92681121826172,
+            216.13880920410156
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            -103.26302337646484,
+            83.53587341308594,
+            144.3666534423828
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            -272.84173583984375,
+            75.29412078857422,
+            54.863075256347656
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            -578.1992797851563,
+            86.66041564941406,
+            -46.496578216552734
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            -651.7305908203125,
+            96.47029113769531,
+            -105.64119720458984
+          ],
+          "useCurvatureRadius": 0
+        }
+      ],
+      "roadType": 0,
+      "startIntersectionId": "",
+      "startLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "useLaneCenter": false,
+      "useLaneLeft1": true,
+      "useLaneLeft2": false,
+      "useLaneRight1": true,
+      "useLaneRight2": false,
+      "verticalCurve": []
+    },
+    {
+      "active": 1,
+      "bankAngle": [],
+      "closed": false,
+      "defaultFriction": 0.15000000596046448,
+      "defaultTargetSpeed": 40.0,
+      "defaultWidthLaneCenter": 0.0,
+      "defaultWidthLaneLeft1": 4.0,
+      "defaultWidthLaneLeft2": 3.5,
+      "defaultWidthLaneRight1": 4.0,
+      "defaultWidthLaneRight2": 3.5,
+      "endIntersectionId": "",
+      "endLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "cc4c65ff-4ce5-463d-b85d-86be4decc900",
+      "laneSections": [],
+      "name": "Road 0 Copy A",
+      "point": [
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            209.6475830078125,
+            98.82148742675781,
+            6.7386932373046875
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            189.13095092773438,
+            101.45699310302734,
+            -7.979705810546875
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            166.32620239257813,
+            104.27616119384766,
+            -21.226455688476563
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            148.93209838867188,
+            111.78248596191406,
+            -43.45580291748047
+          ],
+          "useCurvatureRadius": 0
+        }
+      ],
+      "roadType": 0,
+      "startIntersectionId": "",
+      "startLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "useLaneCenter": false,
+      "useLaneLeft1": true,
+      "useLaneLeft2": false,
+      "useLaneRight1": true,
+      "useLaneRight2": false,
+      "verticalCurve": []
+    },
+    {
+      "active": 1,
+      "bankAngle": [],
+      "closed": false,
+      "defaultFriction": 0.15000000596046448,
+      "defaultTargetSpeed": 40.0,
+      "defaultWidthLaneCenter": 0.0,
+      "defaultWidthLaneLeft1": 4.0,
+      "defaultWidthLaneLeft2": 3.5,
+      "defaultWidthLaneRight1": 4.0,
+      "defaultWidthLaneRight2": 3.5,
+      "endIntersectionId": "39d56a9d-0002-4c6c-9df4-68fbe08275c3",
+      "endLink": {
+        "intersectionId": "39d56a9d-0002-4c6c-9df4-68fbe08275c3",
+        "socketId": "s1"
+      },
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "c53f1c90-bf48-40ba-8163-86f1e7a24891",
+      "laneSections": [],
+      "name": "Road 0 Copy B",
+      "point": [
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            148.93209838867188,
+            111.78248596191406,
+            -43.45580291748047
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            121.63259887695313,
+            109.33502197265625,
+            -9.16634750366211
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            69.43444061279297,
+            109.13028717041016,
+            -46.560508728027344
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            38.34982681274414,
+            103.08223724365234,
+            13.169007301330566
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            -6.526140213012695,
+            95.31868743896484,
+            41.52322006225586
+          ],
+          "useCurvatureRadius": 0
+        }
+      ],
+      "roadType": 0,
+      "startIntersectionId": "",
+      "startLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "useLaneCenter": false,
+      "useLaneLeft1": true,
+      "useLaneLeft2": false,
+      "useLaneRight1": true,
+      "useLaneRight2": false,
+      "verticalCurve": []
+    },
+    {
+      "active": 1,
+      "bankAngle": [],
+      "closed": false,
+      "defaultFriction": 0.15000000596046448,
+      "defaultTargetSpeed": 40.0,
+      "defaultWidthLaneCenter": 0.0,
+      "defaultWidthLaneLeft1": 4.0,
+      "defaultWidthLaneLeft2": 3.5,
+      "defaultWidthLaneRight1": 4.0,
+      "defaultWidthLaneRight2": 3.5,
+      "endIntersectionId": "",
+      "endLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "ddd044aa-e200-4784-ba66-9e0922072396",
+      "laneSections": [],
+      "name": "Road 4",
+      "point": [
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            252.91448974609375,
+            71.83991241455078,
+            114.75997924804688
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            330.6269836425781,
+            66.50980377197266,
+            51.50578308105469
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            423.5947570800781,
+            45.22686767578125,
+            8.444900512695313
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            456.4325256347656,
+            40.45350646972656,
+            -25.019088745117188
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            497.33294677734375,
+            40.761295318603516,
+            -49.24464416503906
+          ],
+          "useCurvatureRadius": 0
+        }
+      ],
+      "roadType": 0,
+      "startIntersectionId": "",
+      "startLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "useLaneCenter": false,
+      "useLaneLeft1": true,
+      "useLaneLeft2": false,
+      "useLaneRight1": true,
+      "useLaneRight2": false,
+      "verticalCurve": []
+    },
+    {
+      "active": 1,
+      "bankAngle": [],
+      "closed": false,
+      "defaultFriction": 0.15000000596046448,
+      "defaultTargetSpeed": 40.0,
+      "defaultWidthLaneCenter": 0.0,
+      "defaultWidthLaneLeft1": 4.0,
+      "defaultWidthLaneLeft2": 3.5,
+      "defaultWidthLaneRight1": 4.0,
+      "defaultWidthLaneRight2": 3.5,
+      "endIntersectionId": "",
+      "endLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "1bc0366f-da1d-496e-9619-659f8e86358d",
+      "laneSections": [],
+      "name": "Road 0 Copy A Copy A",
+      "point": [
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            497.33294677734375,
+            40.761295318603516,
+            -49.24464416503906
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            398.2142639160156,
+            50.41333770751953,
+            -55.80427551269531
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            371.43212890625,
+            56.371307373046875,
+            -45.020904541015625
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            310.039794921875,
+            71.80171966552734,
+            -37.27838134765625
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            258.8384704589844,
+            102.97454071044922,
+            -52.798370361328125
+          ],
+          "useCurvatureRadius": 0
+        }
+      ],
+      "roadType": 0,
+      "startIntersectionId": "",
+      "startLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "useLaneCenter": false,
+      "useLaneLeft1": true,
+      "useLaneLeft2": false,
+      "useLaneRight1": true,
+      "useLaneRight2": false,
+      "verticalCurve": []
+    },
+    {
+      "active": 1,
+      "bankAngle": [],
+      "closed": false,
+      "defaultFriction": 0.15000000596046448,
+      "defaultTargetSpeed": 40.0,
+      "defaultWidthLaneCenter": 0.0,
+      "defaultWidthLaneLeft1": 4.0,
+      "defaultWidthLaneLeft2": 3.5,
+      "defaultWidthLaneRight1": 4.0,
+      "defaultWidthLaneRight2": 3.5,
+      "endIntersectionId": "",
+      "endLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "ad112ca0-0eb6-4d67-9d03-5b066eb455c7",
+      "laneSections": [],
+      "name": "Road 0 Copy A Copy B",
+      "point": [
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            258.8384704589844,
+            102.97454071044922,
+            -52.798370361328125
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            243.59262084960938,
+            114.313232421875,
+            -77.95179748535156
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            210.52145385742188,
+            118.28546142578125,
+            -90.41877746582031
+          ],
+          "useCurvatureRadius": 0
+        }
+      ],
+      "roadType": 0,
+      "startIntersectionId": "",
+      "startLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "useLaneCenter": false,
+      "useLaneLeft1": true,
+      "useLaneLeft2": false,
+      "useLaneRight1": true,
+      "useLaneRight2": false,
+      "verticalCurve": []
+    },
+    {
+      "active": 1,
+      "bankAngle": [],
+      "closed": false,
+      "defaultFriction": 0.15000000596046448,
+      "defaultTargetSpeed": 40.0,
+      "defaultWidthLaneCenter": 0.0,
+      "defaultWidthLaneLeft1": 4.0,
+      "defaultWidthLaneLeft2": 3.5,
+      "defaultWidthLaneRight1": 4.0,
+      "defaultWidthLaneRight2": 3.5,
+      "endIntersectionId": "",
+      "endLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "2a41ae05-1258-4e19-8725-f2bdb6f4dbbb",
+      "laneSections": [],
+      "name": "Road 7",
+      "point": [
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            258.8384704589844,
+            102.97454071044922,
+            -52.798370361328125
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            252.76434326171875,
+            96.040283203125,
+            -33.60282897949219
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            223.66104125976563,
+            98.76819610595703,
+            -15.339851379394531
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            209.6475830078125,
+            98.82148742675781,
+            6.7386932373046875
+          ],
+          "useCurvatureRadius": 0
+        }
+      ],
+      "roadType": 0,
+      "startIntersectionId": "",
+      "startLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "useLaneCenter": false,
+      "useLaneLeft1": true,
+      "useLaneLeft2": false,
+      "useLaneRight1": true,
+      "useLaneRight2": false,
+      "verticalCurve": []
+    },
+    {
+      "active": 1,
+      "bankAngle": [],
+      "closed": false,
+      "defaultFriction": 0.15000000596046448,
+      "defaultTargetSpeed": 40.0,
+      "defaultWidthLaneCenter": 0.0,
+      "defaultWidthLaneLeft1": 4.0,
+      "defaultWidthLaneLeft2": 3.5,
+      "defaultWidthLaneRight1": 4.0,
+      "defaultWidthLaneRight2": 3.5,
+      "endIntersectionId": "",
+      "endLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "53ae56ce-9553-4048-9420-edc981d0adfe",
+      "laneSections": [],
+      "name": "Road 8",
+      "point": [
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            148.93209838867188,
+            111.78248596191406,
+            -43.45580291748047
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            173.00523376464844,
+            112.73040008544922,
+            -63.908103942871094
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            203.81478881835938,
+            116.05946350097656,
+            -78.11646270751953
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            210.52145385742188,
+            118.28546142578125,
+            -90.41877746582031
+          ],
+          "useCurvatureRadius": 0
+        }
+      ],
+      "roadType": 0,
+      "startIntersectionId": "",
+      "startLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "useLaneCenter": false,
+      "useLaneLeft1": true,
+      "useLaneLeft2": false,
+      "useLaneRight1": true,
+      "useLaneRight2": false,
+      "verticalCurve": []
+    },
+    {
+      "active": 1,
+      "bankAngle": [],
+      "closed": false,
+      "defaultFriction": 0.15000000596046448,
+      "defaultTargetSpeed": 40.0,
+      "defaultWidthLaneCenter": 0.10000000149011612,
+      "defaultWidthLaneLeft1": 4.0,
+      "defaultWidthLaneLeft2": 3.5,
+      "defaultWidthLaneRight1": 4.0,
+      "defaultWidthLaneRight2": 3.5,
+      "endIntersectionId": "",
+      "endLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "groupId": "bb60f17c-3c59-40cc-9a07-0b31694e3f5c",
+      "id": "ebe96bca-c461-478a-ac07-de4a35d4a8ac",
+      "laneSections": [
+        {
+          "offsetCenter": 0.0,
+          "u": 0.2955000102519989,
+          "useLaneCenter": false,
+          "useLaneLeft1": true,
+          "useLaneLeft2": false,
+          "useLaneRight1": true,
+          "useLaneRight2": false,
+          "widthLaneCenter": 0.10000000149011612,
+          "widthLaneLeft1": 4.0,
+          "widthLaneLeft2": 3.5,
+          "widthLaneRight1": 4.0,
+          "widthLaneRight2": 3.5
+        },
+        {
+          "offsetCenter": 0.0,
+          "u": 0.4925785958766937,
+          "useLaneCenter": false,
+          "useLaneLeft1": true,
+          "useLaneLeft2": true,
+          "useLaneRight1": true,
+          "useLaneRight2": false,
+          "widthLaneCenter": 0.10000000149011612,
+          "widthLaneLeft1": 4.0,
+          "widthLaneLeft2": 3.5,
+          "widthLaneRight1": 4.0,
+          "widthLaneRight2": 3.5
+        },
+        {
+          "offsetCenter": 0.0,
+          "u": 0.7142000198364258,
+          "useLaneCenter": false,
+          "useLaneLeft1": true,
+          "useLaneLeft2": true,
+          "useLaneRight1": true,
+          "useLaneRight2": false,
+          "widthLaneCenter": 0.10000000149011612,
+          "widthLaneLeft1": 4.0,
+          "widthLaneLeft2": 3.5,
+          "widthLaneRight1": 4.0,
+          "widthLaneRight2": 3.5
+        },
+        {
+          "offsetCenter": 0.0,
+          "u": 0.8537977337837219,
+          "useLaneCenter": false,
+          "useLaneLeft1": true,
+          "useLaneLeft2": false,
+          "useLaneRight1": true,
+          "useLaneRight2": false,
+          "widthLaneCenter": 0.10000000149011612,
+          "widthLaneLeft1": 4.0,
+          "widthLaneLeft2": 3.5,
+          "widthLaneRight1": 4.0,
+          "widthLaneRight2": 3.5
+        }
+      ],
+      "name": "Road 9",
+      "point": [
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            252.91448974609375,
+            71.83991241455078,
+            114.75997924804688
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            235.81695556640625,
+            74.99152374267578,
+            90.2752685546875
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            202.18490600585938,
+            88.65611267089844,
+            31.882415771484375
+          ],
+          "useCurvatureRadius": 0
+        },
+        {
+          "curvatureRadius": 0.0,
+          "pos": [
+            209.6475830078125,
+            98.82148742675781,
+            6.7386932373046875
+          ],
+          "useCurvatureRadius": 0
+        }
+      ],
+      "roadType": 0,
+      "startIntersectionId": "",
+      "startLink": {
+        "intersectionId": "",
+        "socketId": ""
+      },
+      "useLaneCenter": false,
+      "useLaneLeft1": true,
+      "useLaneLeft2": false,
+      "useLaneRight1": true,
+      "useLaneRight2": false,
+      "verticalCurve": []
+    }
+  ],
+  "terrain": {
+    "depth": 5000.0,
+    "enabled": true,
+    "height": 160.0,
+    "meshCellsX": 0,
+    "meshCellsZ": 0,
+    "offset": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "path": "sample_heightmap.png",
+    "texturePath": "sample_texture.png",
+    "visible": true,
+    "width": 5000.0
+  },
+  "version": 4
+}

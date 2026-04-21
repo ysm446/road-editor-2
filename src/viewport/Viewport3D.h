@@ -198,9 +198,6 @@ private:
     float                m_gizmoDragScreenDepth = 0.0f;
     glm::vec3            m_gizmoDragOrigGlPos   = {0.0f, 0.0f, 0.0f};
     glm::vec3            m_gizmoDragLastGlPos   = {0.0f, 0.0f, 0.0f};
-    glm::vec3            m_gizmoDragScreenHit0  = {0.0f, 0.0f, 0.0f};
-    glm::vec3            m_gizmoDragOrigWorldPos = {0.0f, 0.0f, 0.0f};
-    glm::vec3            m_gizmoDragLastWorldHit = {0.0f, 0.0f, 0.0f};
 
     // Intersection drag state: per-endpoint offset from intersection center (world space)
     struct IxDragEndpoint { int roadIdx, ptIdx; glm::vec3 origOffset; };

@@ -22,7 +22,6 @@
 #include <QStatusBar>
 #include <QTimer>
 #include <QTextEdit>
-#include <utility>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)

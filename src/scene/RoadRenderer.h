@@ -51,7 +51,6 @@ private:
     LineBatch m_allPoints;    // all control point dots (gray)
     LineBatch m_allCtrlLines; // control polygon for all roads (dim, Edit mode)
     LineBatch m_selBatch;     // selected control point (orange)
-    LineBatch m_selRoadOutline; // selected road halo
     LineBatch m_selRoad;      // selected road centerline highlight
     LineBatch m_selCtrlLines; // selected road control polygon highlight
     LineBatch m_selSockets;   // selected intersection sockets

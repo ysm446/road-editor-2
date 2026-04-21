@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <QMetaType>
 #include <QWidget>
 #include "../model/RoadNetwork.h"
@@ -65,6 +66,20 @@ private:
     void populateBankAngle(const Road& road, int bankAngleIdx);
     void populateLaneSection(const Road& road, int laneSectionIdx);
     void populateSocket(const Intersection& ix, int socketIdx);
+    std::array<QCheckBox*, 5> roadLaneChecks() const;
+    std::array<QDoubleSpinBox*, 5> roadLaneSpins() const;
+    std::array<QCheckBox*, 5> laneSectionChecks() const;
+    std::array<QDoubleSpinBox*, 5> laneSectionSpins() const;
+    void setLaneControlsBlocked(const std::array<QCheckBox*, 5>& checks,
+                                const std::array<QDoubleSpinBox*, 5>& spins,
+                                bool blocked);
+    void setLaneControlsEnabled(const std::array<QCheckBox*, 5>& checks,
+                                const std::array<QDoubleSpinBox*, 5>& spins,
+                                bool enabled);
+    void setLaneControlsValues(const std::array<QCheckBox*, 5>& checks,
+                               const std::array<QDoubleSpinBox*, 5>& spins,
+                               const std::array<bool, 5>& enabledValues,
+                               const std::array<float, 5>& widthValues);
 
     const RoadNetwork* m_net     = nullptr;
     int                m_roadIdx = -1;

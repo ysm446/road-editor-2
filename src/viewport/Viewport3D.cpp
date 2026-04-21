@@ -144,8 +144,13 @@ void Viewport3D::paintGL() {
                         glm::vec2(static_cast<float>(width()), static_cast<float>(height())),
                         m_editor.mode);
 
-    if (m_glReady && m_editor.mode == ToolMode::Edit) {
-        const bool showGizmo = m_editor.sel.valid() || m_editor.sel.hasIntersection();
+    if (m_glReady) {
+        const bool showEditGizmo =
+            m_editor.mode == ToolMode::Edit && (m_editor.sel.valid() || m_editor.sel.hasIntersection());
+        const bool showSelectGizmo =
+            m_editor.mode == ToolMode::Select && m_selectMoveGizmoEnabled &&
+            (m_editor.sel.roadIdx >= 0 || m_editor.sel.hasIntersection());
+        const bool showGizmo = showEditGizmo || showSelectGizmo;
         if (showGizmo) {
             glm::vec3 glPos = selectionPivotGlPos();
             m_transformGizmo.rebuild(this, glPos, cameraGlPos(), m_gizmoHover);
@@ -883,6 +888,17 @@ glm::vec3 Viewport3D::selectionPivotGlPos() const {
         return ix.pos;
     }
 
+    if (m_editor.sel.roadIdx >= 0 &&
+        m_editor.sel.roadIdx < (int)m_network.roads.size()) {
+        const auto& road = m_network.roads[m_editor.sel.roadIdx];
+        if (!road.points.empty()) {
+            glm::vec3 sum(0.0f);
+            for (const auto& cp : road.points)
+                sum += cp.pos;
+            return sum / static_cast<float>(road.points.size());
+        }
+    }
+
     return {0.0f, 0.0f, 0.0f};
 }
 
@@ -910,6 +926,105 @@ void Viewport3D::syncSelectionVisuals() {
     m_roadRenderer.updateSelection(this, m_network, m_editor.sel);
     emit selectionChanged(selectedRoadForPanels());
     emit selectionStateChanged(m_editor.sel);
+}
+
+void Viewport3D::refreshSelectionVisuals() {
+    makeCurrent();
+    syncSelectionVisuals();
+    doneCurrent();
+}
+
+void Viewport3D::rebuildRoadRenderer(bool notifyNetworkChange) {
+    makeCurrent();
+    m_roadRenderer.rebuild(this, m_network);
+    syncSelectionVisuals();
+    doneCurrent();
+    if (notifyNetworkChange)
+        emit networkChanged();
+}
+
+void Viewport3D::snapDraggedPointsToTerrain() {
+    if (!m_snapToTerrainWhileMoving || m_editor.mode != ToolMode::Edit || !m_terrainRenderer.hasData())
+        return;
+
+    for (const auto& selPt : m_editor.sel.points) {
+        auto& pos = m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos;
+        float terrainY = 0.0f;
+        if (m_terrainRenderer.sampleWorldHeight(pos.x, pos.z, terrainY))
+            pos.y = terrainY;
+    }
+}
+
+void Viewport3D::handleSelectedPointDrag(QMouseEvent* e, const glm::vec3& rayOri, const glm::vec3& rayDir,
+                                         const glm::vec3& rayOriGl, const glm::vec3& rayDirGl) {
+    auto resolveScreenGlHit = [&]() -> std::pair<glm::vec3, bool> {
+        Q_UNUSED(rayOri);
+        Q_UNUSED(rayDirGl);
+        Q_UNUSED(rayOriGl);
+        return {screenToGlAtDepth(e->pos(), m_gizmoDragScreenDepth), true};
+    };
+
+    auto resolveGlPos = [&]() -> glm::vec3 {
+        if (m_gizmoDragAxis != TransformGizmo::Axis::None) {
+            glm::vec3 axDir = TransformGizmo::axisDir(m_gizmoDragAxis);
+            float t = TransformGizmo::axisTParam(rayOriGl, rayDirGl, m_gizmoDragOrigGlPos, axDir);
+            return m_gizmoDragOrigGlPos + (t - m_gizmoDragT0) * axDir;
+        }
+        return rayHitY(rayOri, rayDir, m_dragPlaneY.y);
+    };
+
+    if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
+        appendInputDebugLog("drag move type=Screen points");
+        auto [glHit, ok] = resolveScreenGlHit();
+        if (!ok) return;
+        glm::vec3 deltaGl = glHit - m_gizmoDragLastGlPos;
+        if (glm::length(deltaGl) > 30.0f) {
+            appendInputDebugLog(QString("screenDrag jump points deltaGl=(%1,%2,%3) len=%4 mouse=(%5,%6) depth=%7")
+                .arg(deltaGl.x, 0, 'f', 3)
+                .arg(deltaGl.y, 0, 'f', 3)
+                .arg(deltaGl.z, 0, 'f', 3)
+                .arg(glm::length(deltaGl), 0, 'f', 3)
+                .arg(e->pos().x()).arg(e->pos().y())
+                .arg(m_gizmoDragScreenDepth, 0, 'f', 6));
+        }
+        for (const auto& selPt : m_editor.sel.points)
+            m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos += deltaGl;
+        m_gizmoDragLastGlPos = glHit;
+    } else {
+        appendInputDebugLog(QString("drag move type=%1 points").arg(axisName(m_gizmoDragAxis)));
+        glm::vec3 newPivotGlPos = resolveGlPos();
+        glm::vec3 deltaWorld = newPivotGlPos - m_gizmoDragOrigGlPos;
+
+        for (const auto& origin : m_pointDragOrigins) {
+            auto& pos = m_network.roads[origin.point.roadIdx].points[origin.point.pointIdx].pos;
+            pos = origin.pos + deltaWorld;
+        }
+    }
+
+    snapDraggedPointsToTerrain();
+
+    m_socketHoverIntersectionIdx = -1;
+    m_socketHoverSocketIdx = -1;
+    if (m_gizmoDragAxis == TransformGizmo::Axis::Screen &&
+        m_editor.sel.points.size() == 1) {
+        const auto& selPt = m_editor.sel.points.front();
+        if (isEndpointControlPoint(selPt.roadIdx, selPt.pointIdx)) {
+            int hoverIntersectionIdx = -1;
+            int hoverSocketIdx = -1;
+            if (pickSocket(e->pos(), hoverIntersectionIdx, hoverSocketIdx, 32.0f)) {
+                m_socketHoverIntersectionIdx = hoverIntersectionIdx;
+                m_socketHoverSocketIdx = hoverSocketIdx;
+                const auto& ix = m_network.intersections[hoverIntersectionIdx];
+                const auto& socket = ix.sockets[hoverSocketIdx];
+                m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos =
+                    ix.pos + socket.localPos;
+            }
+        }
+    }
+
+    if (m_socketDragIntersectionIdx >= 0)
+        syncLinkedEndpointsForIntersection(m_socketDragIntersectionIdx);
+    rebuildRoadRenderer();
 }
 
 void Viewport3D::beginPointDrag(const glm::vec3& pivotGlPos) {
@@ -940,6 +1055,56 @@ void Viewport3D::beginPointDrag(const glm::vec3& pivotGlPos) {
     m_dragging = !m_pointDragOrigins.empty();
 }
 
+void Viewport3D::beginRoadDrag(int roadIdx, const glm::vec3& pivotGlPos) {
+    if (roadIdx < 0 || roadIdx >= (int)m_network.roads.size())
+        return;
+
+    auto& road = m_network.roads[roadIdx];
+    m_pointDragOrigins.clear();
+    m_editor.pushUndo(m_network);
+    road.startIntersectionId.clear();
+    road.startLink.clear();
+    road.endIntersectionId.clear();
+    road.endLink.clear();
+
+    for (int pointIdx = 0; pointIdx < (int)road.points.size(); ++pointIdx)
+        m_pointDragOrigins.push_back({{roadIdx, pointIdx}, road.points[pointIdx].pos});
+
+    m_dragPlaneY = pivotGlPos;
+    m_dragging = !m_pointDragOrigins.empty();
+}
+
+void Viewport3D::handleSelectedRoadDrag(QMouseEvent* e, const glm::vec3& rayOri, const glm::vec3& rayDir,
+                                        const glm::vec3& rayOriGl, const glm::vec3& rayDirGl) {
+    auto resolveGlPos = [&]() -> glm::vec3 {
+        if (m_gizmoDragAxis == TransformGizmo::Axis::Screen)
+            return screenToGlAtDepth(e->pos(), m_gizmoDragScreenDepth);
+
+        glm::vec3 axDir = TransformGizmo::axisDir(m_gizmoDragAxis);
+        float t = TransformGizmo::axisTParam(rayOriGl, rayDirGl, m_gizmoDragOrigGlPos, axDir);
+        return m_gizmoDragOrigGlPos + (t - m_gizmoDragT0) * axDir;
+    };
+
+    glm::vec3 deltaWorld(0.0f);
+    if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
+        appendInputDebugLog("drag move type=Screen road");
+        glm::vec3 glHit = resolveGlPos();
+        deltaWorld = glHit - m_gizmoDragLastGlPos;
+        m_gizmoDragLastGlPos = glHit;
+        for (const auto& origin : m_pointDragOrigins)
+            m_network.roads[origin.point.roadIdx].points[origin.point.pointIdx].pos += deltaWorld;
+    } else {
+        appendInputDebugLog(QString("drag move type=%1 road").arg(axisName(m_gizmoDragAxis)));
+        deltaWorld = resolveGlPos() - m_gizmoDragOrigGlPos;
+        for (const auto& origin : m_pointDragOrigins)
+            m_network.roads[origin.point.roadIdx].points[origin.point.pointIdx].pos = origin.pos + deltaWorld;
+    }
+
+    Q_UNUSED(rayOri);
+    Q_UNUSED(rayDir);
+    rebuildRoadRenderer();
+}
+
 void Viewport3D::applySelectedSocketProperties(const QString& name, float yaw, bool enabled) {
     if (!m_editor.sel.hasSocket()) return;
     if (m_editor.sel.intersectionIdx < 0 ||
@@ -955,11 +1120,7 @@ void Viewport3D::applySelectedSocketProperties(const QString& name, float yaw, b
     socket.yaw = yaw;
     socket.enabled = enabled;
     syncLinkedEndpointsForIntersection(m_editor.sel.intersectionIdx);
-    makeCurrent();
-    m_roadRenderer.rebuild(this, m_network);
-    syncSelectionVisuals();
-    doneCurrent();
-    emit networkChanged();
+    rebuildRoadRenderer();
 }
 
 void Viewport3D::addSocketToSelectedIntersection() {
@@ -1552,44 +1713,79 @@ void Viewport3D::deleteSelectedControlPoints() {
 }
 
 bool Viewport3D::snapSelectedPointsToTerrain() {
-    if (m_editor.mode != ToolMode::Edit || !m_editor.sel.valid() || !m_terrainRenderer.hasData())
+    if (!m_terrainRenderer.hasData())
         return false;
 
-    std::vector<SelectedPoint> uniquePoints = m_editor.sel.points;
-    std::sort(uniquePoints.begin(), uniquePoints.end(), [](const SelectedPoint& a, const SelectedPoint& b) {
-        if (a.roadIdx != b.roadIdx) return a.roadIdx < b.roadIdx;
-        return a.pointIdx < b.pointIdx;
-    });
-    uniquePoints.erase(std::unique(uniquePoints.begin(), uniquePoints.end()), uniquePoints.end());
+    std::vector<std::pair<SelectedPoint, float>> snappedPoints;
+    if (m_editor.sel.valid()) {
+        std::vector<SelectedPoint> uniquePoints = m_editor.sel.points;
+        std::sort(uniquePoints.begin(), uniquePoints.end(), [](const SelectedPoint& a, const SelectedPoint& b) {
+            if (a.roadIdx != b.roadIdx) return a.roadIdx < b.roadIdx;
+            return a.pointIdx < b.pointIdx;
+        });
+        uniquePoints.erase(std::unique(uniquePoints.begin(), uniquePoints.end()), uniquePoints.end());
 
-    std::vector<std::pair<SelectedPoint, float>> snapped;
-    snapped.reserve(uniquePoints.size());
-    for (const auto& selPt : uniquePoints) {
-        if (selPt.roadIdx < 0 || selPt.roadIdx >= static_cast<int>(m_network.roads.size()))
-            continue;
-        auto& road = m_network.roads[selPt.roadIdx];
-        if (selPt.pointIdx < 0 || selPt.pointIdx >= static_cast<int>(road.points.size()))
-            continue;
+        snappedPoints.reserve(uniquePoints.size());
+        for (const auto& selPt : uniquePoints) {
+            if (selPt.roadIdx < 0 || selPt.roadIdx >= static_cast<int>(m_network.roads.size()))
+                continue;
+            auto& road = m_network.roads[selPt.roadIdx];
+            if (selPt.pointIdx < 0 || selPt.pointIdx >= static_cast<int>(road.points.size()))
+                continue;
 
-        float terrainY = 0.0f;
-        const glm::vec3& pos = road.points[selPt.pointIdx].pos;
-        if (!m_terrainRenderer.sampleWorldHeight(pos.x, pos.z, terrainY))
-            continue;
-        snapped.push_back({selPt, terrainY});
+            float terrainY = 0.0f;
+            const glm::vec3& pos = road.points[selPt.pointIdx].pos;
+            if (!m_terrainRenderer.sampleWorldHeight(pos.x, pos.z, terrainY))
+                continue;
+            snappedPoints.push_back({selPt, terrainY});
+        }
     }
 
-    if (snapped.empty())
+    bool snappedSocket = false;
+    float socketTerrainY = 0.0f;
+    if (m_editor.sel.hasSocket() &&
+        m_editor.sel.intersectionIdx >= 0 &&
+        m_editor.sel.intersectionIdx < static_cast<int>(m_network.intersections.size())) {
+        const auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
+        if (m_editor.sel.socketIdx >= 0 &&
+            m_editor.sel.socketIdx < static_cast<int>(ix.sockets.size())) {
+            const glm::vec3 socketWorldPos = ix.pos + ix.sockets[m_editor.sel.socketIdx].localPos;
+            snappedSocket = m_terrainRenderer.sampleWorldHeight(
+                socketWorldPos.x, socketWorldPos.z, socketTerrainY);
+        }
+    }
+
+    bool snappedIntersection = false;
+    float intersectionTerrainY = 0.0f;
+    if (m_editor.sel.hasIntersection() &&
+        m_editor.sel.intersectionIdx >= 0 &&
+        m_editor.sel.intersectionIdx < static_cast<int>(m_network.intersections.size())) {
+        const auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
+        snappedIntersection = m_terrainRenderer.sampleWorldHeight(
+            ix.pos.x, ix.pos.z, intersectionTerrainY);
+    }
+
+    if (snappedPoints.empty() && !snappedSocket && !snappedIntersection)
         return false;
 
     m_editor.pushUndo(m_network);
-    for (const auto& [selPt, terrainY] : snapped)
+    for (const auto& [selPt, terrainY] : snappedPoints)
         m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos.y = terrainY;
 
-    makeCurrent();
-    m_roadRenderer.rebuild(this, m_network);
-    syncSelectionVisuals();
-    doneCurrent();
-    emit networkChanged();
+    if (snappedSocket) {
+        auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
+        auto& socket = ix.sockets[m_editor.sel.socketIdx];
+        socket.localPos.y = socketTerrainY - ix.pos.y;
+        syncLinkedEndpointsForIntersection(m_editor.sel.intersectionIdx);
+    }
+
+    if (snappedIntersection) {
+        auto& ix = m_network.intersections[m_editor.sel.intersectionIdx];
+        ix.pos.y = intersectionTerrainY;
+        syncLinkedEndpointsForIntersection(m_editor.sel.intersectionIdx);
+    }
+
+    rebuildRoadRenderer();
     update();
     return true;
 }
@@ -1779,11 +1975,7 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
             m_editor.sel.setIntersection(static_cast<int>(m_network.intersections.size()) - 1);
             m_editor.editSubTool = EditSubTool::None;
             clearCreateToolState();
-            makeCurrent();
-            m_roadRenderer.rebuild(this, m_network);
-            syncSelectionVisuals();
-            doneCurrent();
-            emit networkChanged();
+    rebuildRoadRenderer();
             unsetCursor();
             return;
         }
@@ -1816,11 +2008,7 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
                 m_editor.sel.setSinglePoint(newRoadIdx, 0);
                 m_editor.editSubTool = EditSubTool::None;
                 clearCreateToolState();
-                makeCurrent();
-                m_roadRenderer.rebuild(this, m_network);
-                syncSelectionVisuals();
-                doneCurrent();
-                emit networkChanged();
+    rebuildRoadRenderer();
                 unsetCursor();
             } else {
                 m_pendingRoadStartIntersectionIdx = hoverIntersectionIdx;
@@ -1833,14 +2021,41 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
     }
 
     if (m_editor.mode == ToolMode::Select) {
-        int socketIntersectionIdx = -1;
-        int socketIdx = -1;
+        if (m_selectMoveGizmoEnabled &&
+            (m_editor.sel.roadIdx >= 0 || m_editor.sel.hasIntersection())) {
+            glm::vec3 glPos = selectionPivotGlPos();
+            glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
+            auto axis = m_transformGizmo.hitTest(
+                e->pos(), glPos, cameraGlPos(), vpMat, width(), height());
+            if (axis != TransformGizmo::Axis::None) {
+                m_gizmoDragAxis = axis;
+                m_gizmoDragOrigGlPos = glPos;
+                m_gizmoDragLastGlPos = glPos;
+                m_skipNextScreenDragMove = (axis == TransformGizmo::Axis::Screen);
+                if (axis == TransformGizmo::Axis::Screen) {
+                    glm::vec4 clip = vpMat * glm::vec4(glPos, 1.0f);
+                    m_gizmoDragScreenDepth = (clip.w != 0.0f) ? (clip.z / clip.w) : 0.0f;
+                    m_gizmoDragLastGlPos = screenToGlAtDepth(e->pos(), m_gizmoDragScreenDepth);
+                } else {
+                    m_gizmoDragT0 = TransformGizmo::axisTParam(
+                        rayOriGl, rayDirGl, glPos, TransformGizmo::axisDir(axis));
+                }
+
+                if (m_editor.sel.roadIdx >= 0)
+                    beginRoadDrag(m_editor.sel.roadIdx, glPos);
+                else if (m_editor.sel.hasIntersection()) {
+                    setupIxDragEndpoints(m_editor.sel.intersectionIdx);
+                    m_dragging = true;
+                    m_editor.pushUndo(m_network);
+                }
+                return;
+            }
+        }
+
         int ixIdx = -1;
         int ri = -1;
 
-        if (pickSocket(e->pos(), socketIntersectionIdx, socketIdx)) {
-            m_editor.sel.setIntersection(socketIntersectionIdx, socketIdx);
-        } else if ((ixIdx = pickIntersection(e->pos())) >= 0) {
+        if ((ixIdx = pickIntersection(e->pos())) >= 0) {
             m_editor.sel.setIntersection(ixIdx);
         } else if ((ri = pickRoad(e->pos())) >= 0) {
             m_editor.sel.clear();
@@ -1884,11 +2099,7 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
                         }
                     }
                     m_editor.sel.setVerticalCurve(pickedRoad, newIdx);
-                    makeCurrent();
-                    m_roadRenderer.rebuild(this, m_network);
-                    syncSelectionVisuals();
-                    doneCurrent();
-                    emit networkChanged();
+    rebuildRoadRenderer();
                     update();
                     return;
                 }
@@ -1939,11 +2150,7 @@ void Viewport3D::mousePressEvent(QMouseEvent* e) {
                         }
                     }
                     m_editor.sel.setBankAngle(pickedRoad, newIdx);
-                    makeCurrent();
-                    m_roadRenderer.rebuild(this, m_network);
-                    syncSelectionVisuals();
-                    doneCurrent();
-                    emit networkChanged();
+    rebuildRoadRenderer();
                     update();
                     return;
                 }
@@ -2300,20 +2507,20 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
         glm::vec3 rayOri = m_camera.position();
         glm::vec3 rayDirGl = toGlVector(rayDir);
         glm::vec3 rayOriGl = cameraGlPos();
+
+        if (m_gizmoDragAxis == TransformGizmo::Axis::Screen && m_skipNextScreenDragMove) {
+            m_gizmoDragLastGlPos = screenToGlAtDepth(e->pos(), m_gizmoDragScreenDepth);
+            appendInputDebugLog("drag move type=Screen prime");
+            m_skipNextScreenDragMove = false;
+            return;
+        }
+
         auto resolveScreenGlHit = [&]() -> std::pair<glm::vec3, bool> {
             Q_UNUSED(rayOri);
             Q_UNUSED(rayDirGl);
             Q_UNUSED(rayOriGl);
             return {screenToGlAtDepth(e->pos(), m_gizmoDragScreenDepth), true};
         };
-
-        if (m_gizmoDragAxis == TransformGizmo::Axis::Screen && m_skipNextScreenDragMove) {
-            auto [glHit, ok] = resolveScreenGlHit();
-            if (ok) m_gizmoDragLastGlPos = glHit;
-            appendInputDebugLog("drag move type=Screen prime");
-            m_skipNextScreenDragMove = false;
-            return;
-        }
 
         auto resolveGlPos = [&]() -> glm::vec3 {
             if (m_gizmoDragAxis != TransformGizmo::Axis::None) {
@@ -2325,73 +2532,9 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
         };
 
         if (m_editor.sel.valid()) {
-            if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
-                appendInputDebugLog("drag move type=Screen points");
-                auto [glHit, ok] = resolveScreenGlHit();
-                if (!ok) return;
-                glm::vec3 deltaGl = glHit - m_gizmoDragLastGlPos;
-                if (glm::length(deltaGl) > 30.0f) {
-                    appendInputDebugLog(QString("screenDrag jump points deltaGl=(%1,%2,%3) len=%4 mouse=(%5,%6) depth=%7")
-                        .arg(deltaGl.x, 0, 'f', 3)
-                        .arg(deltaGl.y, 0, 'f', 3)
-                        .arg(deltaGl.z, 0, 'f', 3)
-                        .arg(glm::length(deltaGl), 0, 'f', 3)
-                        .arg(e->pos().x()).arg(e->pos().y())
-                        .arg(m_gizmoDragScreenDepth, 0, 'f', 6));
-                }
-                glm::vec3 deltaWorld = deltaGl;
-                for (const auto& selPt : m_editor.sel.points) {
-                    auto& pos = m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos;
-                    pos += deltaWorld;
-                }
-                m_gizmoDragLastGlPos = glHit;
-            } else {
-                appendInputDebugLog(QString("drag move type=%1 points").arg(axisName(m_gizmoDragAxis)));
-                glm::vec3 newPivotGlPos = resolveGlPos();
-                glm::vec3 deltaGl = newPivotGlPos - m_gizmoDragOrigGlPos;
-                glm::vec3 deltaWorld = deltaGl;
-
-                for (const auto& origin : m_pointDragOrigins) {
-                    auto& pos = m_network.roads[origin.point.roadIdx].points[origin.point.pointIdx].pos;
-                    pos = origin.pos + deltaWorld;
-                }
-            }
-
-            if (m_snapToTerrainWhileMoving && m_editor.mode == ToolMode::Edit && m_terrainRenderer.hasData()) {
-                for (const auto& selPt : m_editor.sel.points) {
-                    auto& pos = m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos;
-                    float terrainY = 0.0f;
-                    if (m_terrainRenderer.sampleWorldHeight(pos.x, pos.z, terrainY))
-                        pos.y = terrainY;
-                }
-            }
-
-            m_socketHoverIntersectionIdx = -1;
-            m_socketHoverSocketIdx = -1;
-            if (m_gizmoDragAxis == TransformGizmo::Axis::Screen &&
-                m_editor.sel.points.size() == 1) {
-                const auto& selPt = m_editor.sel.points.front();
-                if (isEndpointControlPoint(selPt.roadIdx, selPt.pointIdx)) {
-                    int hoverIntersectionIdx = -1;
-                    int hoverSocketIdx = -1;
-                    if (pickSocket(e->pos(), hoverIntersectionIdx, hoverSocketIdx, 32.0f)) {
-                        m_socketHoverIntersectionIdx = hoverIntersectionIdx;
-                        m_socketHoverSocketIdx = hoverSocketIdx;
-                        const auto& ix = m_network.intersections[hoverIntersectionIdx];
-                        const auto& socket = ix.sockets[hoverSocketIdx];
-                        m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos =
-                            ix.pos + socket.localPos;
-                    }
-                }
-            }
-
-            makeCurrent();
-            if (m_socketDragIntersectionIdx >= 0)
-                syncLinkedEndpointsForIntersection(m_socketDragIntersectionIdx);
-            m_roadRenderer.rebuild(this, m_network);
-            syncSelectionVisuals();
-            doneCurrent();
-            emit networkChanged();
+            handleSelectedPointDrag(e, rayOri, rayDir, rayOriGl, rayDirGl);
+        } else if (m_editor.mode == ToolMode::Select && m_editor.sel.roadIdx >= 0) {
+            handleSelectedRoadDrag(e, rayOri, rayDir, rayOriGl, rayDirGl);
         } else if (m_editor.sel.hasSocket()) {
             if (m_socketDragIntersectionIdx < 0 ||
                 m_socketDragIntersectionIdx >= (int)m_network.intersections.size() ||
@@ -2476,10 +2619,12 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
         }
     }
 
-    if (!m_dragging && !m_boxSelecting && m_glReady && m_editor.mode == ToolMode::Edit) {
+    if (!m_dragging && !m_boxSelecting && m_glReady &&
+        (m_editor.mode == ToolMode::Edit || (m_editor.mode == ToolMode::Select && m_selectMoveGizmoEnabled))) {
         int hoverIntersectionIdx = -1;
         int hoverSocketIdx = -1;
-        if (pickSocket(e->pos(), hoverIntersectionIdx, hoverSocketIdx)) {
+        if (m_editor.mode == ToolMode::Edit &&
+            pickSocket(e->pos(), hoverIntersectionIdx, hoverSocketIdx)) {
             if (m_socketHoverIntersectionIdx != hoverIntersectionIdx ||
                 m_socketHoverSocketIdx != hoverSocketIdx) {
                 m_socketHoverIntersectionIdx = hoverIntersectionIdx;
@@ -2492,7 +2637,10 @@ void Viewport3D::mouseMoveEvent(QMouseEvent* e) {
             update();
         }
 
-        const bool hasGizmo = m_editor.sel.valid() || m_editor.sel.hasIntersection();
+        const bool hasGizmo =
+            (m_editor.mode == ToolMode::Edit && (m_editor.sel.valid() || m_editor.sel.hasIntersection())) ||
+            (m_editor.mode == ToolMode::Select && m_selectMoveGizmoEnabled &&
+             (m_editor.sel.roadIdx >= 0 || m_editor.sel.hasIntersection()));
         if (hasGizmo) {
             glm::vec3 glPos = selectionPivotGlPos();
             glm::mat4 vpMat = m_camera.projMatrix(m_aspect) * m_camera.viewMatrix();
@@ -2759,10 +2907,22 @@ void Viewport3D::keyPressEvent(QKeyEvent* e) {
     }
 
     if (e->key() == Qt::Key_C &&
-        m_editor.mode == ToolMode::Edit &&
-        m_editor.sel.valid()) {
+        ((m_editor.mode == ToolMode::Edit &&
+          (m_editor.sel.valid() || m_editor.sel.hasSocket())) ||
+         (m_editor.mode == ToolMode::Select && m_editor.sel.hasIntersection()))) {
         if (snapSelectedPointsToTerrain())
             e->accept();
+        return;
+    }
+
+    if (e->key() == Qt::Key_W &&
+        e->modifiers() == Qt::NoModifier &&
+        m_editor.mode == ToolMode::Select) {
+        m_selectMoveGizmoEnabled = !m_selectMoveGizmoEnabled;
+        if (!m_selectMoveGizmoEnabled)
+            m_gizmoHover = TransformGizmo::Axis::None;
+        update();
+        e->accept();
         return;
     }
 

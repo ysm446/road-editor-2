@@ -45,7 +45,7 @@ private:
     LineBatch m_roads;       // centerlines (unselected)
     LineBatch m_directionArrows; // direction arrows along centerlines
     LineBatch m_lanePreview; // lane boundary preview lines
-    LineBatch m_nodes;       // intersection markers
+    LineBatch m_nodePoints;  // intersection center points
     LineBatch m_socketLines; // socket spokes
     LineBatch m_socketPoints; // socket markers
     LineBatch m_allPoints;    // all control point dots (gray)

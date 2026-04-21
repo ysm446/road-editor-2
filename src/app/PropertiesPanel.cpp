@@ -8,6 +8,7 @@
 #include <QGroupBox>
 #include <QLineEdit>
 #include <QPushButton>
+#include <array>
 
 static QDoubleSpinBox* makeWidthSpin(QWidget* parent) {
     auto* s = new QDoubleSpinBox(parent);
@@ -228,29 +229,19 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     socketForm->addRow(socketButtons);
     root->addWidget(m_socketGroup);
 
+    const auto roadChecks = roadLaneChecks();
+    const auto roadSpins = roadLaneSpins();
+    const auto laneSectionCheckControls = laneSectionChecks();
+    const auto laneSectionSpinControls = laneSectionSpins();
+
     connect(m_speedSpin, &QDoubleSpinBox::valueChanged,
             this, QOverload<>::of(&PropertiesPanel::applyChanges));
-
-    connect(m_useLaneLeft2Check, &QCheckBox::toggled,
-            this, QOverload<>::of(&PropertiesPanel::applyChanges));
-    connect(m_widthLaneLeft2Spin, &QDoubleSpinBox::valueChanged,
-            this, QOverload<>::of(&PropertiesPanel::applyChanges));
-    connect(m_useLaneLeft1Check, &QCheckBox::toggled,
-            this, QOverload<>::of(&PropertiesPanel::applyChanges));
-    connect(m_widthLaneLeft1Spin, &QDoubleSpinBox::valueChanged,
-            this, QOverload<>::of(&PropertiesPanel::applyChanges));
-    connect(m_useLaneCenterCheck, &QCheckBox::toggled,
-            this, QOverload<>::of(&PropertiesPanel::applyChanges));
-    connect(m_widthLaneCenterSpin, &QDoubleSpinBox::valueChanged,
-            this, QOverload<>::of(&PropertiesPanel::applyChanges));
-    connect(m_useLaneRight1Check, &QCheckBox::toggled,
-            this, QOverload<>::of(&PropertiesPanel::applyChanges));
-    connect(m_widthLaneRight1Spin, &QDoubleSpinBox::valueChanged,
-            this, QOverload<>::of(&PropertiesPanel::applyChanges));
-    connect(m_useLaneRight2Check, &QCheckBox::toggled,
-            this, QOverload<>::of(&PropertiesPanel::applyChanges));
-    connect(m_widthLaneRight2Spin, &QDoubleSpinBox::valueChanged,
-            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    for (size_t i = 0; i < roadChecks.size(); ++i) {
+        connect(roadChecks[i], &QCheckBox::toggled,
+                this, QOverload<>::of(&PropertiesPanel::applyChanges));
+        connect(roadSpins[i], &QDoubleSpinBox::valueChanged,
+                this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    }
     connect(m_segmentLengthSpin, &QDoubleSpinBox::valueChanged,
             this, QOverload<>::of(&PropertiesPanel::applyChanges));
     connect(m_equalMidpointCheck, &QCheckBox::toggled,
@@ -275,26 +266,12 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
             this, &PropertiesPanel::removeBankAngle);
     connect(m_laneSectionUSpin, &QDoubleSpinBox::valueChanged,
             this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
-    connect(m_laneSectionUseLaneLeft2Check, &QCheckBox::toggled,
-            this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
-    connect(m_laneSectionWidthLaneLeft2Spin, &QDoubleSpinBox::valueChanged,
-            this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
-    connect(m_laneSectionUseLaneLeft1Check, &QCheckBox::toggled,
-            this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
-    connect(m_laneSectionWidthLaneLeft1Spin, &QDoubleSpinBox::valueChanged,
-            this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
-    connect(m_laneSectionUseLaneCenterCheck, &QCheckBox::toggled,
-            this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
-    connect(m_laneSectionWidthLaneCenterSpin, &QDoubleSpinBox::valueChanged,
-            this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
-    connect(m_laneSectionUseLaneRight1Check, &QCheckBox::toggled,
-            this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
-    connect(m_laneSectionWidthLaneRight1Spin, &QDoubleSpinBox::valueChanged,
-            this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
-    connect(m_laneSectionUseLaneRight2Check, &QCheckBox::toggled,
-            this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
-    connect(m_laneSectionWidthLaneRight2Spin, &QDoubleSpinBox::valueChanged,
-            this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
+    for (size_t i = 0; i < laneSectionCheckControls.size(); ++i) {
+        connect(laneSectionCheckControls[i], &QCheckBox::toggled,
+                this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
+        connect(laneSectionSpinControls[i], &QDoubleSpinBox::valueChanged,
+                this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
+    }
     connect(m_laneSectionOffsetCenterSpin, &QDoubleSpinBox::valueChanged,
             this, QOverload<>::of(&PropertiesPanel::applyLaneSectionChanges));
     connect(m_removeLaneSectionButton, &QPushButton::clicked,
@@ -326,6 +303,54 @@ QSize PropertiesPanel::sizeHint() const {
 
 void PropertiesPanel::setNetwork(const RoadNetwork* net) {
     m_net = net;
+}
+
+std::array<QCheckBox*, 5> PropertiesPanel::roadLaneChecks() const {
+    return {m_useLaneLeft2Check, m_useLaneLeft1Check, m_useLaneCenterCheck,
+            m_useLaneRight1Check, m_useLaneRight2Check};
+}
+
+std::array<QDoubleSpinBox*, 5> PropertiesPanel::roadLaneSpins() const {
+    return {m_widthLaneLeft2Spin, m_widthLaneLeft1Spin, m_widthLaneCenterSpin,
+            m_widthLaneRight1Spin, m_widthLaneRight2Spin};
+}
+
+std::array<QCheckBox*, 5> PropertiesPanel::laneSectionChecks() const {
+    return {m_laneSectionUseLaneLeft2Check, m_laneSectionUseLaneLeft1Check, m_laneSectionUseLaneCenterCheck,
+            m_laneSectionUseLaneRight1Check, m_laneSectionUseLaneRight2Check};
+}
+
+std::array<QDoubleSpinBox*, 5> PropertiesPanel::laneSectionSpins() const {
+    return {m_laneSectionWidthLaneLeft2Spin, m_laneSectionWidthLaneLeft1Spin, m_laneSectionWidthLaneCenterSpin,
+            m_laneSectionWidthLaneRight1Spin, m_laneSectionWidthLaneRight2Spin};
+}
+
+void PropertiesPanel::setLaneControlsBlocked(const std::array<QCheckBox*, 5>& checks,
+                                             const std::array<QDoubleSpinBox*, 5>& spins,
+                                             bool blocked) {
+    for (size_t i = 0; i < checks.size(); ++i) {
+        checks[i]->blockSignals(blocked);
+        spins[i]->blockSignals(blocked);
+    }
+}
+
+void PropertiesPanel::setLaneControlsEnabled(const std::array<QCheckBox*, 5>& checks,
+                                             const std::array<QDoubleSpinBox*, 5>& spins,
+                                             bool enabled) {
+    for (size_t i = 0; i < checks.size(); ++i) {
+        checks[i]->setEnabled(enabled);
+        spins[i]->setEnabled(enabled);
+    }
+}
+
+void PropertiesPanel::setLaneControlsValues(const std::array<QCheckBox*, 5>& checks,
+                                            const std::array<QDoubleSpinBox*, 5>& spins,
+                                            const std::array<bool, 5>& enabledValues,
+                                            const std::array<float, 5>& widthValues) {
+    for (size_t i = 0; i < checks.size(); ++i) {
+        checks[i]->setChecked(enabledValues[i]);
+        spins[i]->setValue(widthValues[i]);
+    }
 }
 
 void PropertiesPanel::onSelectionChanged(int roadIdx) {
@@ -450,35 +475,25 @@ void PropertiesPanel::populate(const Road& road) {
         : QString::fromStdString(road.name);
     m_nameLabel->setText(name);
 
-    auto blockAll = [&](bool b) {
-        m_speedSpin->blockSignals(b);
-        m_useLaneLeft2Check->blockSignals(b);  m_widthLaneLeft2Spin->blockSignals(b);
-        m_useLaneLeft1Check->blockSignals(b);  m_widthLaneLeft1Spin->blockSignals(b);
-        m_useLaneCenterCheck->blockSignals(b); m_widthLaneCenterSpin->blockSignals(b);
-        m_useLaneRight1Check->blockSignals(b); m_widthLaneRight1Spin->blockSignals(b);
-        m_useLaneRight2Check->blockSignals(b); m_widthLaneRight2Spin->blockSignals(b);
-        m_segmentLengthSpin->blockSignals(b);
-        m_equalMidpointCheck->blockSignals(b);
-    };
-    blockAll(true);
+    m_speedSpin->blockSignals(true);
+    setLaneControlsBlocked(roadLaneChecks(), roadLaneSpins(), true);
+    m_segmentLengthSpin->blockSignals(true);
+    m_equalMidpointCheck->blockSignals(true);
 
     m_speedSpin->setValue(road.defaultTargetSpeed);
-
-    m_useLaneLeft2Check->setChecked(road.useLaneLeft2);
-    m_widthLaneLeft2Spin->setValue(road.defaultWidthLaneLeft2);
-    m_useLaneLeft1Check->setChecked(road.useLaneLeft1);
-    m_widthLaneLeft1Spin->setValue(road.defaultWidthLaneLeft1);
-    m_useLaneCenterCheck->setChecked(road.useLaneCenter);
-    m_widthLaneCenterSpin->setValue(road.defaultWidthLaneCenter);
-    m_useLaneRight1Check->setChecked(road.useLaneRight1);
-    m_widthLaneRight1Spin->setValue(road.defaultWidthLaneRight1);
-    m_useLaneRight2Check->setChecked(road.useLaneRight2);
-    m_widthLaneRight2Spin->setValue(road.defaultWidthLaneRight2);
+    setLaneControlsValues(
+        roadLaneChecks(), roadLaneSpins(),
+        {road.useLaneLeft2, road.useLaneLeft1, road.useLaneCenter, road.useLaneRight1, road.useLaneRight2},
+        {road.defaultWidthLaneLeft2, road.defaultWidthLaneLeft1, road.defaultWidthLaneCenter,
+         road.defaultWidthLaneRight1, road.defaultWidthLaneRight2});
 
     m_segmentLengthSpin->setValue(road.segmentLength);
     m_equalMidpointCheck->setChecked(road.equalMidpoint);
 
-    blockAll(false);
+    m_speedSpin->blockSignals(false);
+    setLaneControlsBlocked(roadLaneChecks(), roadLaneSpins(), false);
+    m_segmentLengthSpin->blockSignals(false);
+    m_equalMidpointCheck->blockSignals(false);
 }
 
 void PropertiesPanel::populatePoint(const Selection& sel) {
@@ -609,42 +624,19 @@ void PropertiesPanel::populateLaneSection(const Road& road, int laneSectionIdx) 
     m_nameLabel->setText(roadName + QString(" / Lane %1").arg(laneSectionIdx));
 
     m_laneSectionUSpin->blockSignals(true);
-    m_laneSectionUseLaneLeft2Check->blockSignals(true);
-    m_laneSectionWidthLaneLeft2Spin->blockSignals(true);
-    m_laneSectionUseLaneLeft1Check->blockSignals(true);
-    m_laneSectionWidthLaneLeft1Spin->blockSignals(true);
-    m_laneSectionUseLaneCenterCheck->blockSignals(true);
-    m_laneSectionWidthLaneCenterSpin->blockSignals(true);
-    m_laneSectionUseLaneRight1Check->blockSignals(true);
-    m_laneSectionWidthLaneRight1Spin->blockSignals(true);
-    m_laneSectionUseLaneRight2Check->blockSignals(true);
-    m_laneSectionWidthLaneRight2Spin->blockSignals(true);
+    setLaneControlsBlocked(laneSectionChecks(), laneSectionSpins(), true);
     m_laneSectionOffsetCenterSpin->blockSignals(true);
 
     m_laneSectionUSpin->setValue(point.u);
-    m_laneSectionUseLaneLeft2Check->setChecked(point.useLaneLeft2);
-    m_laneSectionWidthLaneLeft2Spin->setValue(point.widthLaneLeft2);
-    m_laneSectionUseLaneLeft1Check->setChecked(point.useLaneLeft1);
-    m_laneSectionWidthLaneLeft1Spin->setValue(point.widthLaneLeft1);
-    m_laneSectionUseLaneCenterCheck->setChecked(point.useLaneCenter);
-    m_laneSectionWidthLaneCenterSpin->setValue(point.widthLaneCenter);
-    m_laneSectionUseLaneRight1Check->setChecked(point.useLaneRight1);
-    m_laneSectionWidthLaneRight1Spin->setValue(point.widthLaneRight1);
-    m_laneSectionUseLaneRight2Check->setChecked(point.useLaneRight2);
-    m_laneSectionWidthLaneRight2Spin->setValue(point.widthLaneRight2);
+    setLaneControlsValues(
+        laneSectionChecks(), laneSectionSpins(),
+        {point.useLaneLeft2, point.useLaneLeft1, point.useLaneCenter, point.useLaneRight1, point.useLaneRight2},
+        {point.widthLaneLeft2, point.widthLaneLeft1, point.widthLaneCenter,
+         point.widthLaneRight1, point.widthLaneRight2});
     m_laneSectionOffsetCenterSpin->setValue(point.offsetCenter);
 
     m_laneSectionUSpin->blockSignals(false);
-    m_laneSectionUseLaneLeft2Check->blockSignals(false);
-    m_laneSectionWidthLaneLeft2Spin->blockSignals(false);
-    m_laneSectionUseLaneLeft1Check->blockSignals(false);
-    m_laneSectionWidthLaneLeft1Spin->blockSignals(false);
-    m_laneSectionUseLaneCenterCheck->blockSignals(false);
-    m_laneSectionWidthLaneCenterSpin->blockSignals(false);
-    m_laneSectionUseLaneRight1Check->blockSignals(false);
-    m_laneSectionWidthLaneRight1Spin->blockSignals(false);
-    m_laneSectionUseLaneRight2Check->blockSignals(false);
-    m_laneSectionWidthLaneRight2Spin->blockSignals(false);
+    setLaneControlsBlocked(laneSectionChecks(), laneSectionSpins(), false);
     m_laneSectionOffsetCenterSpin->blockSignals(false);
 }
 
@@ -653,11 +645,7 @@ void PropertiesPanel::setRoadEnabled(bool on) {
     m_laneGroup->setVisible(on);
     m_meshGroup->setVisible(on);
     m_speedSpin->setEnabled(on);
-    m_useLaneLeft2Check->setEnabled(on);  m_widthLaneLeft2Spin->setEnabled(on);
-    m_useLaneLeft1Check->setEnabled(on);  m_widthLaneLeft1Spin->setEnabled(on);
-    m_useLaneCenterCheck->setEnabled(on); m_widthLaneCenterSpin->setEnabled(on);
-    m_useLaneRight1Check->setEnabled(on); m_widthLaneRight1Spin->setEnabled(on);
-    m_useLaneRight2Check->setEnabled(on); m_widthLaneRight2Spin->setEnabled(on);
+    setLaneControlsEnabled(roadLaneChecks(), roadLaneSpins(), on);
     m_segmentLengthSpin->setEnabled(on);
     m_equalMidpointCheck->setEnabled(on);
 }
@@ -695,16 +683,7 @@ void PropertiesPanel::setBankAngleEnabled(bool on) {
 void PropertiesPanel::setLaneSectionEnabled(bool on) {
     m_laneSectionGroup->setVisible(on);
     m_laneSectionUSpin->setEnabled(on);
-    m_laneSectionUseLaneLeft2Check->setEnabled(on);
-    m_laneSectionWidthLaneLeft2Spin->setEnabled(on);
-    m_laneSectionUseLaneLeft1Check->setEnabled(on);
-    m_laneSectionWidthLaneLeft1Spin->setEnabled(on);
-    m_laneSectionUseLaneCenterCheck->setEnabled(on);
-    m_laneSectionWidthLaneCenterSpin->setEnabled(on);
-    m_laneSectionUseLaneRight1Check->setEnabled(on);
-    m_laneSectionWidthLaneRight1Spin->setEnabled(on);
-    m_laneSectionUseLaneRight2Check->setEnabled(on);
-    m_laneSectionWidthLaneRight2Spin->setEnabled(on);
+    setLaneControlsEnabled(laneSectionChecks(), laneSectionSpins(), on);
     m_laneSectionOffsetCenterSpin->setEnabled(on);
     m_removeLaneSectionButton->setEnabled(on);
 }

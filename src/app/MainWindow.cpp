@@ -20,7 +20,6 @@
 #include <QFileInfo>
 #include <QSettings>
 #include <QStatusBar>
-#include <QTimer>
 #include <QTextEdit>
 
 MainWindow::MainWindow(QWidget* parent)
@@ -100,13 +99,6 @@ MainWindow::MainWindow(QWidget* parent)
                 }
             });
 
-    // Auto-load sample data
-    QString sample = QStringLiteral(ROAD_EDITOR_SOURCE_DIR) + "/docs/road_data_format.json";
-    if (QFile::exists(sample))
-        QTimer::singleShot(0, this, [this, sample]{
-            m_currentPath = sample;
-            m_viewport->loadNetwork(sample);
-        });
 }
 
 void MainWindow::setupDocks() {
@@ -260,8 +252,7 @@ void MainWindow::setupMenuBar() {
 
     m_wireframeAct = view->addAction("Wireframe");
     m_wireframeAct->setCheckable(true);
-    m_wireframeAct->setToolTip("Toggle wireframe display  [W]");
-    m_wireframeAct->setShortcut(Qt::Key_W);
+    m_wireframeAct->setToolTip("Toggle wireframe display");
     connect(m_wireframeAct, &QAction::toggled, m_viewport, &Viewport3D::setWireframe);
 
     m_directionArrowsAct = view->addAction("Road Direction Arrows");

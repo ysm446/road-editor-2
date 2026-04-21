@@ -119,7 +119,15 @@ private:
     void syncLinkedEndpointsForIntersection(int intersectionIdx);
     void deleteSelectedControlPoints();
     bool snapSelectedPointsToTerrain();
+    void snapDraggedPointsToTerrain();
+    void beginRoadDrag(int roadIdx, const glm::vec3& pivotGlPos);
+    void handleSelectedPointDrag(QMouseEvent* e, const glm::vec3& rayOri, const glm::vec3& rayDir,
+                                 const glm::vec3& rayOriGl, const glm::vec3& rayDirGl);
+    void handleSelectedRoadDrag(QMouseEvent* e, const glm::vec3& rayOri, const glm::vec3& rayDir,
+                                const glm::vec3& rayOriGl, const glm::vec3& rayDirGl);
     void syncSelectionVisuals();
+    void refreshSelectionVisuals();
+    void rebuildRoadRenderer(bool notifyNetworkChange = true);
     void beginPointDrag(const glm::vec3& pivotGlPos);
     int selectedRoadForPanels() const;
     void clearCreateToolState();
@@ -144,6 +152,7 @@ private:
     bool           m_showGrid  = true;
     bool           m_wireframe = false;
     bool           m_snapToTerrainWhileMoving = false;
+    bool           m_selectMoveGizmoEnabled = false;
 
     RoadNetwork    m_network;
     RoadRenderer   m_roadRenderer;

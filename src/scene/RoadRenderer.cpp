@@ -47,7 +47,7 @@ void RoadRenderer::init(QOpenGLFunctions_4_1_Core* f) {
     m_roads.init(f);
     m_directionArrows.init(f);
     m_lanePreview.init(f);
-    m_nodes.init(f);
+    m_nodePoints.init(f);
     m_socketLines.init(f);
     m_socketPoints.init(f);
     m_allPoints.init(f);
@@ -73,7 +73,6 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     const glm::vec3 kNode      = {0.35f, 0.90f, 0.45f};
     const glm::vec3 kSocketLine = {0.55f, 0.65f, 0.90f};
     const glm::vec3 kSocketPoint = {0.70f, 0.80f, 1.00f};
-    const float     kCross     = 5.0f;
     const glm::vec3 kDirectionArrow = {1.0f, 0.95f, 0.35f};
     const float     kArrowSpacing = 40.0f;
     const float     kArrowLength = 14.0f;
@@ -205,14 +204,12 @@ void RoadRenderer::rebuild(QOpenGLFunctions_4_1_Core* f, const RoadNetwork& net)
     m_directionArrows.upload(f);
     m_lanePreview.upload(f);
 
-    m_nodes.begin();
+    m_nodePoints.begin();
     for (const auto& n : net.intersections) {
         glm::vec3 p = toGL(n.pos);
-        m_nodes.addLine(p - glm::vec3(kCross, 0, 0), p + glm::vec3(kCross, 0, 0), kNode);
-        m_nodes.addLine(p - glm::vec3(0, kCross, 0), p + glm::vec3(0, kCross, 0), kNode);
-        m_nodes.addLine(p - glm::vec3(0, 0, kCross), p + glm::vec3(0, 0, kCross), kNode);
+        m_nodePoints.addPoint(p, kNode);
     }
-    m_nodes.upload(f);
+    m_nodePoints.upload(f);
 
     m_socketLines.begin();
     m_socketPoints.begin();
@@ -364,7 +361,6 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
     m_roads.draw(f, lineShader, vp);
     if (m_laneSectionPreview)
         m_lanePreview.draw(f, lineShader, vp);
-    m_nodes.draw(f, lineShader, vp);
     m_socketLines.draw(f, lineShader, vp);
     if (m_showDirectionArrows)
         m_directionArrows.draw(f, lineShader, vp);
@@ -381,6 +377,7 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
     const float selectedPointSize = (mode == ToolMode::Edit) ? 16.0f : 14.0f;
     if (m_showPoints)
         m_allPoints.drawPoints(f, pointShader, vp, allPointSize);
+    m_nodePoints.drawPoints(f, pointShader, vp, 13.0f);
     m_socketPoints.drawPoints(f, pointShader, vp, 9.0f);
     m_selBatch.drawPoints(f, pointShader, vp, selectedPointSize);
     m_selSockets.drawPoints(f, pointShader, vp, 15.0f);
@@ -393,7 +390,7 @@ void RoadRenderer::destroy(QOpenGLFunctions_4_1_Core* f) {
     m_roads.destroy(f);
     m_directionArrows.destroy(f);
     m_lanePreview.destroy(f);
-    m_nodes.destroy(f);
+    m_nodePoints.destroy(f);
     m_socketLines.destroy(f);
     m_socketPoints.destroy(f);
     m_allPoints.destroy(f);

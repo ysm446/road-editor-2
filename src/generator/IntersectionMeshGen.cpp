@@ -24,6 +24,11 @@ static glm::vec3 bezier3(const glm::vec3& p0, const glm::vec3& c0,
     return u*u*u*p0 + 3.0f*u*u*t*c0 + 3.0f*u*t*t*c1 + t*t*t*p1;
 }
 
+static void defaultLaneWidths(float& leftW, float& rightW) {
+    const Road defaultRoad;
+    laneWidths(defaultRoad, 0.0f, leftW, rightW);
+}
+
 } // anonymous namespace
 
 // ---------------------------------------------------------------------------
@@ -99,6 +104,37 @@ void IntersectionMeshGen::generate(
         boundary.push_back({ leftWorld,  toGL(leftWorld),  tangent, angleOf(leftWorld),  roadIdx });
         boundary.push_back({ rightWorld, toGL(rightWorld), tangent, angleOf(rightWorld), roadIdx });
         ++roadIdx;
+    }
+
+    if ((int)boundary.size() < 4) {
+        float leftW = 0.0f;
+        float rightW = 0.0f;
+        defaultLaneWidths(leftW, rightW);
+
+        for (const auto& socket : ix.sockets) {
+            if (!socket.enabled) continue;
+
+            const glm::vec3 endpointPos = ix.pos + socket.localPos;
+            const glm::vec3 tangent(std::cos(socket.yaw), 0.0f, std::sin(socket.yaw));
+            const float tanLen = glm::length(tangent);
+            if (tanLen < 1e-6f) continue;
+
+            glm::vec3 binom = glm::cross(worldUp, tangent / tanLen);
+            const float bLen = glm::length(binom);
+            if (bLen < 1e-6f) continue;
+            binom /= bLen;
+
+            glm::vec3 leftWorld  = endpointPos + binom * leftW;
+            glm::vec3 rightWorld = endpointPos - binom * rightW;
+
+            auto angleOf = [&](const glm::vec3& p) {
+                return std::atan2(p.z - ix.pos.z, p.x - ix.pos.x);
+            };
+
+            boundary.push_back({ leftWorld,  toGL(leftWorld),  tangent / tanLen, angleOf(leftWorld),  roadIdx });
+            boundary.push_back({ rightWorld, toGL(rightWorld), tangent / tanLen, angleOf(rightWorld), roadIdx });
+            ++roadIdx;
+        }
     }
 
     if ((int)boundary.size() < 4) return;

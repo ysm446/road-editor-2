@@ -26,6 +26,7 @@ struct RoadProperties {
     bool  useLaneRight2  = false;
     float widthLaneRight2 = 3.5f;
     float segmentLength  = 1.0f;
+    float divideLength   = 1.0f;
     bool  equalMidpoint  = false;
 };
 
@@ -115,6 +116,7 @@ private:
     QDoubleSpinBox* m_widthLaneRight2Spin;
 
     QDoubleSpinBox* m_segmentLengthSpin;
+    QDoubleSpinBox* m_divideLengthSpin;
     QCheckBox*      m_equalMidpointCheck;
     QGroupBox*      m_verticalCurveGroup;
     QDoubleSpinBox* m_verticalUCoordSpin;

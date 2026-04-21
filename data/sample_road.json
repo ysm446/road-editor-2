@@ -485,6 +485,7 @@
       "defaultWidthLaneLeft2": 3.5,
       "defaultWidthLaneRight1": 4.0,
       "defaultWidthLaneRight2": 3.5,
+      "divideLength": 1.0,
       "endIntersectionId": "39d56a9d-0002-4c6c-9df4-68fbe08275c3",
       "endLink": {
         "intersectionId": "39d56a9d-0002-4c6c-9df4-68fbe08275c3",
@@ -607,6 +608,7 @@
         }
       ],
       "roadType": 0,
+      "segmentLength": 1.0,
       "startIntersectionId": "",
       "startLink": {
         "intersectionId": "",
@@ -630,6 +632,7 @@
       "defaultWidthLaneLeft2": 3.5,
       "defaultWidthLaneRight1": 4.0,
       "defaultWidthLaneRight2": 3.5,
+      "divideLength": 1.0,
       "endIntersectionId": "",
       "endLink": {
         "intersectionId": "",
@@ -711,6 +714,7 @@
         }
       ],
       "roadType": 0,
+      "segmentLength": 1.0,
       "startIntersectionId": "",
       "startLink": {
         "intersectionId": "",
@@ -734,6 +738,7 @@
       "defaultWidthLaneLeft2": 3.5,
       "defaultWidthLaneRight1": 4.0,
       "defaultWidthLaneRight2": 3.5,
+      "divideLength": 1.0,
       "endIntersectionId": "",
       "endLink": {
         "intersectionId": "",
@@ -782,6 +787,7 @@
         }
       ],
       "roadType": 0,
+      "segmentLength": 1.0,
       "startIntersectionId": "",
       "startLink": {
         "intersectionId": "",
@@ -805,6 +811,7 @@
       "defaultWidthLaneLeft2": 3.5,
       "defaultWidthLaneRight1": 4.0,
       "defaultWidthLaneRight2": 3.5,
+      "divideLength": 1.0,
       "endIntersectionId": "39d56a9d-0002-4c6c-9df4-68fbe08275c3",
       "endLink": {
         "intersectionId": "39d56a9d-0002-4c6c-9df4-68fbe08275c3",
@@ -862,6 +869,7 @@
         }
       ],
       "roadType": 0,
+      "segmentLength": 1.0,
       "startIntersectionId": "",
       "startLink": {
         "intersectionId": "",
@@ -885,6 +893,7 @@
       "defaultWidthLaneLeft2": 3.5,
       "defaultWidthLaneRight1": 4.0,
       "defaultWidthLaneRight2": 3.5,
+      "divideLength": 1.0,
       "endIntersectionId": "",
       "endLink": {
         "intersectionId": "",
@@ -942,6 +951,7 @@
         }
       ],
       "roadType": 0,
+      "segmentLength": 1.0,
       "startIntersectionId": "",
       "startLink": {
         "intersectionId": "",
@@ -965,6 +975,7 @@
       "defaultWidthLaneLeft2": 3.5,
       "defaultWidthLaneRight1": 4.0,
       "defaultWidthLaneRight2": 3.5,
+      "divideLength": 1.0,
       "endIntersectionId": "",
       "endLink": {
         "intersectionId": "",
@@ -1022,6 +1033,7 @@
         }
       ],
       "roadType": 0,
+      "segmentLength": 1.0,
       "startIntersectionId": "",
       "startLink": {
         "intersectionId": "",
@@ -1045,6 +1057,7 @@
       "defaultWidthLaneLeft2": 3.5,
       "defaultWidthLaneRight1": 4.0,
       "defaultWidthLaneRight2": 3.5,
+      "divideLength": 1.0,
       "endIntersectionId": "",
       "endLink": {
         "intersectionId": "",
@@ -1084,6 +1097,7 @@
         }
       ],
       "roadType": 0,
+      "segmentLength": 1.0,
       "startIntersectionId": "",
       "startLink": {
         "intersectionId": "",
@@ -1107,6 +1121,7 @@
       "defaultWidthLaneLeft2": 3.5,
       "defaultWidthLaneRight1": 4.0,
       "defaultWidthLaneRight2": 3.5,
+      "divideLength": 1.0,
       "endIntersectionId": "",
       "endLink": {
         "intersectionId": "",
@@ -1155,6 +1170,7 @@
         }
       ],
       "roadType": 0,
+      "segmentLength": 1.0,
       "startIntersectionId": "",
       "startLink": {
         "intersectionId": "",
@@ -1178,6 +1194,7 @@
       "defaultWidthLaneLeft2": 3.5,
       "defaultWidthLaneRight1": 4.0,
       "defaultWidthLaneRight2": 3.5,
+      "divideLength": 1.0,
       "endIntersectionId": "",
       "endLink": {
         "intersectionId": "",
@@ -1226,6 +1243,7 @@
         }
       ],
       "roadType": 0,
+      "segmentLength": 1.0,
       "startIntersectionId": "",
       "startLink": {
         "intersectionId": "",
@@ -1249,6 +1267,7 @@
       "defaultWidthLaneLeft2": 3.5,
       "defaultWidthLaneRight1": 4.0,
       "defaultWidthLaneRight2": 3.5,
+      "divideLength": 1.0,
       "endIntersectionId": "",
       "endLink": {
         "intersectionId": "",
@@ -1354,6 +1373,7 @@
         }
       ],
       "roadType": 0,
+      "segmentLength": 1.0,
       "startIntersectionId": "",
       "startLink": {
         "intersectionId": "",

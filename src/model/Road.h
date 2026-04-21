@@ -85,6 +85,7 @@ struct Road {
     float defaultWidthLaneRight2 = 3.5f;
 
     float segmentLength          = 1.0f;
+    float divideLength           = 1.0f;
     bool  equalMidpoint          = false;
     int   roadType = 0;
     bool  closed   = false;

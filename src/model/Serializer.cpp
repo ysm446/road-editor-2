@@ -268,6 +268,8 @@ bool Serializer::loadFromFile(const QString& path, RoadNetwork& net) {
         r.defaultWidthLaneRight1 = jr.value("defaultWidthLaneRight1", 4.0f);
         r.useLaneRight2          = jr.value("useLaneRight2",          false);
         r.defaultWidthLaneRight2 = jr.value("defaultWidthLaneRight2", 3.5f);
+        r.segmentLength          = jr.value("segmentLength",          1.0f);
+        r.divideLength           = jr.value("divideLength",           1.0f);
         r.roadType               = jr.value("roadType",               0);
         r.closed                 = jr.value("closed",                 false);
         r.active                 = jr.value("active",                 1);
@@ -364,6 +366,8 @@ bool Serializer::saveToFile(const QString& path, const RoadNetwork& net) {
             {"defaultWidthLaneRight1", r.defaultWidthLaneRight1},
             {"useLaneRight2",          r.useLaneRight2},
             {"defaultWidthLaneRight2", r.defaultWidthLaneRight2},
+            {"segmentLength",          r.segmentLength},
+            {"divideLength",           r.divideLength},
             {"roadType", r.roadType}, {"closed", r.closed}, {"active", r.active},
             {"verticalCurve", json::array()},
             {"bankAngle",     json::array()},

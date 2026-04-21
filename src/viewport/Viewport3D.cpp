@@ -443,6 +443,7 @@ void Viewport3D::applyRoadProperties(int roadIdx, RoadProperties p) {
     road.useLaneRight2           = p.useLaneRight2;
     road.defaultWidthLaneRight2  = p.widthLaneRight2;
     road.segmentLength           = std::max(p.segmentLength, 0.01f);
+    road.divideLength            = std::max(p.divideLength, 0.01f);
     road.equalMidpoint           = p.equalMidpoint;
     makeCurrent();
     m_roadRenderer.rebuild(this, m_network);

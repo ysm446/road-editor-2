@@ -105,6 +105,15 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
     m_segmentLengthSpin->setToolTip("Mesh tessellation interval along the road direction");
     meshForm->addRow("Segment Length:", m_segmentLengthSpin);
 
+    m_divideLengthSpin = new QDoubleSpinBox(this);
+    m_divideLengthSpin->setRange(0.1, 20.0);
+    m_divideLengthSpin->setValue(1.0);
+    m_divideLengthSpin->setSuffix(" m");
+    m_divideLengthSpin->setDecimals(2);
+    m_divideLengthSpin->setSingleStep(0.25);
+    m_divideLengthSpin->setToolTip("Mesh tessellation interval across the road width");
+    meshForm->addRow("Divide Length:", m_divideLengthSpin);
+
     m_equalMidpointCheck = new QCheckBox("Equal midpoint (t=0.5)", this);
     m_equalMidpointCheck->setToolTip(
         "Checked: bend pivot at exact edge midpoint\n"
@@ -243,6 +252,8 @@ PropertiesPanel::PropertiesPanel(QWidget* parent)
                 this, QOverload<>::of(&PropertiesPanel::applyChanges));
     }
     connect(m_segmentLengthSpin, &QDoubleSpinBox::valueChanged,
+            this, QOverload<>::of(&PropertiesPanel::applyChanges));
+    connect(m_divideLengthSpin, &QDoubleSpinBox::valueChanged,
             this, QOverload<>::of(&PropertiesPanel::applyChanges));
     connect(m_equalMidpointCheck, &QCheckBox::toggled,
             this, QOverload<>::of(&PropertiesPanel::applyChanges));
@@ -478,6 +489,7 @@ void PropertiesPanel::populate(const Road& road) {
     m_speedSpin->blockSignals(true);
     setLaneControlsBlocked(roadLaneChecks(), roadLaneSpins(), true);
     m_segmentLengthSpin->blockSignals(true);
+    m_divideLengthSpin->blockSignals(true);
     m_equalMidpointCheck->blockSignals(true);
 
     m_speedSpin->setValue(road.defaultTargetSpeed);
@@ -488,11 +500,13 @@ void PropertiesPanel::populate(const Road& road) {
          road.defaultWidthLaneRight1, road.defaultWidthLaneRight2});
 
     m_segmentLengthSpin->setValue(road.segmentLength);
+    m_divideLengthSpin->setValue(road.divideLength);
     m_equalMidpointCheck->setChecked(road.equalMidpoint);
 
     m_speedSpin->blockSignals(false);
     setLaneControlsBlocked(roadLaneChecks(), roadLaneSpins(), false);
     m_segmentLengthSpin->blockSignals(false);
+    m_divideLengthSpin->blockSignals(false);
     m_equalMidpointCheck->blockSignals(false);
 }
 
@@ -647,6 +661,7 @@ void PropertiesPanel::setRoadEnabled(bool on) {
     m_speedSpin->setEnabled(on);
     setLaneControlsEnabled(roadLaneChecks(), roadLaneSpins(), on);
     m_segmentLengthSpin->setEnabled(on);
+    m_divideLengthSpin->setEnabled(on);
     m_equalMidpointCheck->setEnabled(on);
 }
 
@@ -704,6 +719,7 @@ void PropertiesPanel::applyChanges() {
     p.useLaneRight2  = m_useLaneRight2Check->isChecked();
     p.widthLaneRight2 = static_cast<float>(m_widthLaneRight2Spin->value());
     p.segmentLength  = static_cast<float>(m_segmentLengthSpin->value());
+    p.divideLength   = static_cast<float>(m_divideLengthSpin->value());
     p.equalMidpoint  = m_equalMidpointCheck->isChecked();
 
     emit roadModified(m_roadIdx, p);

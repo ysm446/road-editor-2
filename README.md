@@ -1,68 +1,83 @@
 # Road Editor 2
 
-スタンドアローンの道路ネットワーク編集ツール。Qt 6 + OpenGL 4.1 で実装。
+Road Editor 2 は、道路線形・交差点・Terrain を編集するスタンドアローンの道路ネットワーク編集ツールです。  
+Qt 6 / C++17 / OpenGL 4.1 を使って実装しています。
 
-Houdini 製道路ツールをベースに、スタンドアローンアプリとして作り直したもの。
-JSON 形式の道路データを読み込み、3D ビューポートで中心線・路面メッシュを表示、制御点をインタラクティブに編集できる。
+## 現在できること
 
-## 機能
+- 道路ネットワーク JSON の読み込み・保存
+- Environment JSON の読み込み・保存
+- 道路中心線、路面メッシュ、交差点メッシュの表示
+- Select / Edit / Vertical / Bank / Lane の各編集モード
+- 交差点、ソケット、レーン断面の編集
+- Heightmap と Terrain texture のインポート
+- Terrain への吸着
+- Undo / Redo
 
-- JSON 道路データの読み込み・保存
-- ハイトマップ画像のインポートと表示
-- 3D ビューポート（オービットカメラ）
-- 路面メッシュ生成（Lambert 陰影付き）
-- 制御点の選択・ドラッグ編集
-- Undo / Redo（50ステップ）
+## 動作環境
 
-## 必要環境
-
-- Qt 6.11+ (MinGW 64-bit)
-- CMake 3.20+
+- Windows
+- Qt 6.11 系 + MinGW 64-bit
+- CMake 3.20 以上
 - OpenGL 4.1 対応 GPU
 
-依存ライブラリ（glm, nlohmann/json）はビルド時に FetchContent で自動取得されます。
+依存ライブラリの `glm` と `nlohmann/json` は、CMake の `FetchContent` で取得されます。
 
 ## ビルド
 
-PowerShell からビルドする場合は、先に MinGW の `bin` を `PATH` に追加してください。
-これを入れないと `g++` 内部の `cc1plus.exe` が必要 DLL を読めず、`cmake --build build`
-が途中で失敗することがあります。
+初回設定:
 
-```bash
-cmake -S . -B build -G "MinGW Makefiles" \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_MAKE_PROGRAM="C:/qt/Tools/mingw1310_64/bin/mingw32-make.exe" \
+```powershell
+cmake -S . -B build -G "MinGW Makefiles" `
+  -DCMAKE_BUILD_TYPE=Release `
+  -DCMAKE_MAKE_PROGRAM="C:/qt/Tools/mingw1310_64/bin/mingw32-make.exe" `
   -DCMAKE_PREFIX_PATH="C:/qt/6.11.0/mingw_64"
+```
 
+ビルド:
+
+```powershell
 $env:PATH='C:\qt\Tools\mingw1310_64\bin;' + $env:PATH
 cmake --build build
 ```
 
-`cmake --build build --config Release -- -j4` でもよいですが、このリポジトリの現在の
-構成では上の 2 行をそのまま使うのが安全です。
+このリポジトリでは `CMakeLists.txt` が `GLOB_RECURSE` を使っているため、新しい `.cpp` / `.h` を追加したあとには再度 `cmake -S . -B build ...` を実行してください。
 
 ## 起動
 
-`start.bat` をダブルクリック、または:
-
-```
+```powershell
 build/bin/RoadEditor2.exe
 ```
 
-起動時に `docs/road_data_format.json` が自動読み込みされます。
-File > Open で別のファイルを開けます。
+または `start.bat` から起動できます。  
+起動時は何もロードされていない空の状態で始まります。
 
-## 操作
+## 基本操作
 
-| 操作 | 内容 |
+| 入力 | 動作 |
 |---|---|
-| Alt + 左ドラッグ | 回転 |
-| Alt + 中ドラッグ | パン |
-| スクロール | ズーム |
-| 左クリック | 制御点を選択（オレンジ表示） |
-| 左ドラッグ | 制御点を水平移動 |
-| Ctrl+Z / Ctrl+Y | Undo / Redo |
+| `Alt + 左ドラッグ` | オービット |
+| `Alt + 中ドラッグ` | パン |
+| `ホイール` | ズーム |
+| `1` | Select モード |
+| `2` | Edit モード |
+| `3` | Vertical モード |
+| `4` | Bank モード |
+| `5` | Lane モード |
+| `R` | 道路作成 |
+| `I` | 交差点作成 |
+| `W` | Select モードの移動ギズモ切替 |
+| `C` | Terrain へ吸着 |
+| `Ctrl + Z / Ctrl + Y` | Undo / Redo |
 
-## データ形式
+## データ
 
-JSON バージョン 3。`docs/road_data_format.json` を参照。
+- 道路ネットワーク JSON: `version = 4`
+- サンプル道路: [data/sample_road.json](data/sample_road.json)
+- フォーマット例: [docs/road_data_format.json](docs/road_data_format.json)
+- 仕様メモ: [docs/road_data_format_spec.md](docs/road_data_format_spec.md)
+
+## 開発向けドキュメント
+
+- 開発環境のセットアップ: [docs/development_environment.md](docs/development_environment.md)
+- 既存メモ: [CLAUDE.md](CLAUDE.md)

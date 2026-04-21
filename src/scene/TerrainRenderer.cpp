@@ -152,6 +152,97 @@ bool TerrainRenderer::sampleWorldHeight(float worldX, float worldZ, float& outY)
     return true;
 }
 
+bool TerrainRenderer::intersectRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, glm::vec3& outPos) const {
+    if (!m_hasData || m_rawWidth < 2 || m_rawHeight < 2)
+        return false;
+
+    const float minX = m_settings.offset.x - m_settings.width * 0.5f;
+    const float maxX = m_settings.offset.x + m_settings.width * 0.5f;
+    const float minZ = m_settings.offset.z - m_settings.depth * 0.5f;
+    const float maxZ = m_settings.offset.z + m_settings.depth * 0.5f;
+
+    float tEnter = 0.0f;
+    float tExit = std::numeric_limits<float>::infinity();
+    auto clipSlab = [&](float origin, float dir, float slabMin, float slabMax) -> bool {
+        constexpr float kEps = 1e-6f;
+        if (std::abs(dir) < kEps)
+            return origin >= slabMin && origin <= slabMax;
+        const float invDir = 1.0f / dir;
+        float t0 = (slabMin - origin) * invDir;
+        float t1 = (slabMax - origin) * invDir;
+        if (t0 > t1)
+            std::swap(t0, t1);
+        tEnter = std::max(tEnter, t0);
+        tExit = std::min(tExit, t1);
+        return tEnter <= tExit;
+    };
+
+    if (!clipSlab(rayOrigin.x, rayDir.x, minX, maxX) ||
+        !clipSlab(rayOrigin.z, rayDir.z, minZ, maxZ)) {
+        return false;
+    }
+
+    tEnter = std::max(tEnter, 0.0f);
+    if (!(tEnter <= tExit))
+        return false;
+
+    auto signedHeight = [&](float t, float& terrainY) -> float {
+        const glm::vec3 p = rayOrigin + rayDir * t;
+        if (!sampleWorldHeight(p.x, p.z, terrainY))
+            return std::numeric_limits<float>::quiet_NaN();
+        return p.y - terrainY;
+    };
+
+    constexpr int kSteps = 128;
+    float prevT = tEnter;
+    float prevTerrainY = 0.0f;
+    float prevSigned = signedHeight(prevT, prevTerrainY);
+    if (!std::isfinite(prevSigned))
+        return false;
+    if (prevSigned <= 0.0f) {
+        outPos = rayOrigin + rayDir * prevT;
+        outPos.y = prevTerrainY;
+        return true;
+    }
+
+    for (int step = 1; step <= kSteps; ++step) {
+        const float t = tEnter + (tExit - tEnter) * (static_cast<float>(step) / static_cast<float>(kSteps));
+        float terrainY = 0.0f;
+        const float currentSigned = signedHeight(t, terrainY);
+        if (!std::isfinite(currentSigned))
+            continue;
+
+        if (currentSigned <= 0.0f) {
+            float lo = prevT;
+            float hi = t;
+            float hiTerrainY = terrainY;
+
+            for (int iter = 0; iter < 12; ++iter) {
+                const float mid = 0.5f * (lo + hi);
+                float midTerrainY = 0.0f;
+                const float midSigned = signedHeight(mid, midTerrainY);
+                if (!std::isfinite(midSigned))
+                    break;
+                if (midSigned > 0.0f) {
+                    lo = mid;
+                } else {
+                    hi = mid;
+                    hiTerrainY = midTerrainY;
+                }
+            }
+
+            outPos = rayOrigin + rayDir * hi;
+            outPos.y = hiTerrainY;
+            return true;
+        }
+
+        prevT = t;
+        prevSigned = currentSigned;
+    }
+
+    return false;
+}
+
 float TerrainRenderer::sampleHeight(float x, float z) const {
     if (m_heights.empty() || m_rawWidth < 2 || m_rawHeight < 2)
         return 0.0f;

@@ -976,21 +976,47 @@ void Viewport3D::handleSelectedPointDrag(QMouseEvent* e, const glm::vec3& rayOri
 
     if (m_gizmoDragAxis == TransformGizmo::Axis::Screen) {
         appendInputDebugLog("drag move type=Screen points");
-        auto [glHit, ok] = resolveScreenGlHit();
-        if (!ok) return;
-        glm::vec3 deltaGl = glHit - m_gizmoDragLastGlPos;
-        if (glm::length(deltaGl) > 30.0f) {
-            appendInputDebugLog(QString("screenDrag jump points deltaGl=(%1,%2,%3) len=%4 mouse=(%5,%6) depth=%7")
-                .arg(deltaGl.x, 0, 'f', 3)
-                .arg(deltaGl.y, 0, 'f', 3)
-                .arg(deltaGl.z, 0, 'f', 3)
-                .arg(glm::length(deltaGl), 0, 'f', 3)
-                .arg(e->pos().x()).arg(e->pos().y())
-                .arg(m_gizmoDragScreenDepth, 0, 'f', 6));
+        glm::vec3 deltaGl(0.0f);
+        bool usedTerrainRaySnap = false;
+        if (m_snapToTerrainWhileMoving && m_editor.mode == ToolMode::Edit && m_terrainRenderer.hasData()) {
+            glm::vec3 terrainHit(0.0f);
+            if (m_terrainRenderer.intersectRay(rayOri, rayDir, terrainHit)) {
+                glm::vec3 currentPivot(0.0f);
+                int validCount = 0;
+                for (const auto& selPt : m_editor.sel.points) {
+                    if (selPt.roadIdx < 0 || selPt.roadIdx >= (int)m_network.roads.size())
+                        continue;
+                    if (selPt.pointIdx < 0 || selPt.pointIdx >= (int)m_network.roads[selPt.roadIdx].points.size())
+                        continue;
+                    currentPivot += m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos;
+                    ++validCount;
+                }
+                if (validCount > 0) {
+                    currentPivot /= static_cast<float>(validCount);
+                    deltaGl = terrainHit - currentPivot;
+                    usedTerrainRaySnap = true;
+                }
+            }
         }
+
+        if (!usedTerrainRaySnap) {
+            auto [glHit, ok] = resolveScreenGlHit();
+            if (!ok) return;
+            deltaGl = glHit - m_gizmoDragLastGlPos;
+            if (glm::length(deltaGl) > 30.0f) {
+                appendInputDebugLog(QString("screenDrag jump points deltaGl=(%1,%2,%3) len=%4 mouse=(%5,%6) depth=%7")
+                    .arg(deltaGl.x, 0, 'f', 3)
+                    .arg(deltaGl.y, 0, 'f', 3)
+                    .arg(deltaGl.z, 0, 'f', 3)
+                    .arg(glm::length(deltaGl), 0, 'f', 3)
+                    .arg(e->pos().x()).arg(e->pos().y())
+                    .arg(m_gizmoDragScreenDepth, 0, 'f', 6));
+            }
+            m_gizmoDragLastGlPos = glHit;
+        }
+
         for (const auto& selPt : m_editor.sel.points)
             m_network.roads[selPt.roadIdx].points[selPt.pointIdx].pos += deltaGl;
-        m_gizmoDragLastGlPos = glHit;
     } else {
         appendInputDebugLog(QString("drag move type=%1 points").arg(axisName(m_gizmoDragAxis)));
         glm::vec3 newPivotGlPos = resolveGlPos();
@@ -1002,7 +1028,12 @@ void Viewport3D::handleSelectedPointDrag(QMouseEvent* e, const glm::vec3& rayOri
         }
     }
 
-    snapDraggedPointsToTerrain();
+    if (!(m_gizmoDragAxis == TransformGizmo::Axis::Screen &&
+          m_snapToTerrainWhileMoving &&
+          m_editor.mode == ToolMode::Edit &&
+          m_terrainRenderer.hasData())) {
+        snapDraggedPointsToTerrain();
+    }
 
     m_socketHoverIntersectionIdx = -1;
     m_socketHoverSocketIdx = -1;

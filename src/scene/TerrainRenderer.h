@@ -25,6 +25,7 @@ public:
 
     bool hasData() const { return m_hasData; }
     bool sampleWorldHeight(float worldX, float worldZ, float& outY) const;
+    bool intersectRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, glm::vec3& outPos) const;
 
 private:
     float sampleHeight(float x, float z) const;

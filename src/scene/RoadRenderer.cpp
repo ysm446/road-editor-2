@@ -388,6 +388,7 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
     if (mode == ToolMode::Select) {
         m_selRoad.drawScreenLines(f, screenLineShader, vp, viewportSize, 5.0f, 2e-4f);
     } else if (mode == ToolMode::Edit) {
+        f->glDisable(GL_DEPTH_TEST);
         m_selCtrlLines.drawScreenLines(f, screenLineShader, vp, viewportSize, 2.0f, 2e-4f);
     }
 
@@ -400,6 +401,8 @@ void RoadRenderer::draw(QOpenGLFunctions_4_1_Core* f,
     m_selBatch.drawPoints(f, pointShader, vp, selectedPointSize);
     m_selSockets.drawPoints(f, pointShader, vp, 15.0f);
     f->glDisable(GL_PROGRAM_POINT_SIZE);
+    if (mode == ToolMode::Edit)
+        f->glEnable(GL_DEPTH_TEST);
 }
 
 void RoadRenderer::destroy(QOpenGLFunctions_4_1_Core* f) {

@@ -11,7 +11,7 @@
 
 static QDoubleSpinBox* makeWidthSpin(QWidget* parent) {
     auto* s = new QDoubleSpinBox(parent);
-    s->setRange(0.1, 20.0);
+    s->setRange(0.0, 20.0);
     s->setValue(3.5);
     s->setSuffix(" m");
     s->setDecimals(2);
